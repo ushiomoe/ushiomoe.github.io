@@ -1,0 +1,192 @@
+body {
+    margin: 0;
+    padding: 20px;
+    font-family: sans-serif;
+}
+
+#textHookDisplay {
+    margin: 0 auto;
+}
+
+.text-line {
+    padding: 8px;
+    cursor: text;
+    outline: none;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.text-line:focus {
+    background-color: var(--control-bg-color, rgba(255, 255, 255, 0.05));
+    border-color: var(--border-color, rgba(255, 255, 255, 0.2));
+}
+
+.text-line-new {
+    animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+#controls-background {
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    height: 40px;
+}
+
+.icon-button {
+    position: fixed;
+    top: 10px;
+    cursor: pointer;
+    user-select: none;
+    z-index: 1000;
+    width: 20px;
+    height: 20px;
+    opacity: 0.8;
+}
+
+.icon-button img {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+#settingsIcon {
+    right: 10px;
+}
+
+#settingsIcon:hover {
+    opacity: 1.0;
+}
+
+#deleteLastButton {
+    right: 40px;
+}
+
+#deleteLastButton:hover {
+    opacity: 1.0;
+    color: #FF6347;
+}
+
+#timerButton {
+    right: 70px;
+}
+
+#timerButton:hover {
+    opacity: 1.0;
+}
+
+#connectionIcon {
+    right: 100px;
+    color: #FF6347;
+}
+
+#connectionIcon:hover {
+    opacity: 1.0;
+}
+
+#connectionIcon.linked {
+    color: #4CAF50;
+}
+
+#timerDisplay {
+    position: fixed;
+    top: 10px;
+    right: 136px;
+    font-size: 14px;
+    font-family: monospace;
+    z-index: 1000;
+    white-space: nowrap;
+}
+
+#settingsPopup {
+        display: none;
+        position: fixed;
+        top: 60px;
+        right: 20px;
+        width: 300px;
+        min-height: 200px;
+        background: white;
+        border: 1px solid;
+        border-radius: 8px;
+        padding: 20px;
+        z-index: 999;
+}
+
+#settingsPopup.visible {
+    display: block;
+}
+
+.setting-group {
+    margin-bottom: 20px;
+}
+
+.setting-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.setting-group select, .setting-group input[type="number"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.setting-group input[type="color"] {
+    width: 100%;
+    height: 40px;
+    border: 1px solid;
+    border-radius: 4px;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.setting-group button {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.setting-group button:hover {
+    opacity: 0.8;
+}
+
+.setting-group label input[type="checkbox"] {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+#timerDisplay.blurred {
+    filter: blur(8px);
+    transition: filter 0.3s ease;
+}
+
+#timerDisplay.blurred:hover {
+    filter: blur(0px);
+}
+
+.settings-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 20px;
+}

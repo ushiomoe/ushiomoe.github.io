@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Game OCR</title>
+        <link href="css/fonts.css" rel="stylesheet">
+        <link href="css/styles.css" rel="stylesheet">
+    </head>
+    <body>
+        <div id="controls-background"></div>
+        <div id="timerDisplay">00:00:00 (0/h) 0/0</div>
+        <div id="timerButton" class="icon-button"></div>
+        <div id="deleteLastButton" class="icon-button"></div>
+        <div id="settingsIcon" class="icon-button"></div>
+        <div id="connectionIcon" class="icon-button"></div>
+        <div id="settingsPopup">
+
+            <div class="settings-title">Reading Session</div>
+
+            <div class="setting-group">
+                <button id="resetSessionButton">Reset Reading Session</button>
+            </div>
+            <div class="settings-title">Settings</div>
+
+            <div class="setting-group">
+                <label for="fontFamily">Font Family</label>
+                <select id="fontFamily">
+                    <option value="Noto Sans JP">Noto Sans JP</option>
+                    <option value="Noto Serif JP">Noto Serif JP</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="fontSize">Font Size (px)</label>
+                <input type="number" id="fontSize" min="12" max="72" value="16">
+            </div>
+
+            <div class="setting-group">
+                <label for="lineSpacing">Line Spacing (em)</label>
+                <input type="number" id="lineSpacing" min="0" max="5" step="0.1" value="0.5">
+            </div>
+
+            <div class="setting-group">
+                <label for="foregroundColor">Foreground Color</label>
+                <input type="color" id="foregroundColor" value="#deddda">
+            </div>
+
+            <div class="setting-group">
+                <label for="backgroundColor">Background Color</label>
+                <input type="color" id="backgroundColor" value="#000000">
+            </div>
+
+            <div class="setting-group">
+                <label for="accentColor">Accent Color</label>
+                <input type="color" id="accentColor" value="#101828">
+            </div>
+
+            <div class="setting-group">
+                <label>
+                    <input type="checkbox" id="blurStats">
+                    Blur Stats
+                </label>
+            </div>
+        </div>
+        <div id="textHookDisplay"></div>
+        <!-- ONNX Runtime Web for MeikiOCR -->
+        <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js"></script>
+        <script src="js/ankiconnect.js"></script>
+        <script src="js/icons.js"></script>
+        <script src="js/settings.js"></script>
+        <script src="js/timer.js"></script>
+        <script src="js/texthook.js"></script>
+        <script src="js/capture.js"></script>
+        <script src="js/meikiocr.js"></script>
+        <script src="js/detect.js"></script>
+        <script src="js/index.js"></script>
+    </body>
+</html>
