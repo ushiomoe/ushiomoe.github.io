@@ -1,79 +1,3016 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Game OCR</title>
-        <link href="css/fonts.css" rel="stylesheet">
-        <link href="css/styles.css" rel="stylesheet">
-    </head>
-    <body>
-        <div id="controls-background"></div>
-        <div id="timerDisplay">00:00:00 (0/h) 0/0</div>
-        <div id="timerButton" class="icon-button"></div>
-        <div id="deleteLastButton" class="icon-button"></div>
-        <div id="settingsIcon" class="icon-button"></div>
-        <div id="connectionIcon" class="icon-button"></div>
-        <div id="settingsPopup">
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Okayu</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="font-css" rel="stylesheet" href="">
+<style>
+  :root {
+    --bg: #000000;
+    --text: #ededed;
+    --font: 'Noto Serif JP', serif;
+    --size: 28px;
+    --line-ok: #22c55e;
+    --line-bad: #ef4444;
+    /* Camera cutouts and rounded corners. Only non-zero with viewport-fit=cover,
+     * i.e. in fullscreen on phones, where the page may draw around the hole
+     * punch. */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    /* Secondary text, derived from the user's color so any theme works. */
+    --soft: color-mix(in srgb, var(--text) 60%, transparent);
+    /* Quiet surfaces (the pomodoro bar's empty part), likewise. */
+    --accent: color-mix(in srgb, var(--text) 16%, var(--bg));
+  }
 
-            <div class="settings-title">Reading Session</div>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-            <div class="setting-group">
-                <button id="resetSessionButton">Reset Reading Session</button>
-            </div>
-            <div class="settings-title">Settings</div>
+  html, body { min-height: 100%; }
 
-            <div class="setting-group">
-                <label for="fontFamily">Font Family</label>
-                <select id="fontFamily">
-                    <option value="Noto Sans JP">Noto Sans JP</option>
-                    <option value="Noto Serif JP">Noto Serif JP</option>
-                </select>
-            </div>
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-weight: 400;
+    line-height: 1.85;
+  }
 
-            <div class="setting-group">
-                <label for="fontSize">Font Size (px)</label>
-                <input type="number" id="fontSize" min="12" max="72" value="16">
-            </div>
+  /* ---- top bar ---- */
 
-            <div class="setting-group">
-                <label for="lineSpacing">Line Spacing (em)</label>
-                <input type="number" id="lineSpacing" min="0" max="5" step="0.1" value="0.5">
-            </div>
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+    padding: calc(2px + var(--safe-top)) calc(6px + var(--safe-right)) 2px calc(14px + var(--safe-left));
+    background: var(--bg);
+    font-family: system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1;
+  }
 
-            <div class="setting-group">
-                <label for="foregroundColor">Foreground Color</label>
-                <input type="color" id="foregroundColor" value="#deddda">
-            </div>
+  #stats {
+    min-width: 0;
+    margin-right: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    transition: filter 0.2s ease;
+  }
 
-            <div class="setting-group">
-                <label for="backgroundColor">Background Color</label>
-                <input type="color" id="backgroundColor" value="#000000">
-            </div>
+  /* Hovering reveals blurred stats; touch screens have no hover, so a tap
+   * toggles them instead. */
+  body.blur-stats #stats:not(.reveal) { filter: blur(5px); }
+  @media (hover: hover) {
+    body.blur-stats #stats:hover { filter: none; }
+  }
 
-            <div class="setting-group">
-                <label for="accentColor">Accent Color</label>
-                <input type="color" id="accentColor" value="#101828">
-            </div>
+  /* Phones: stats on the left edge, buttons on the right. */
+  @media (max-width: 600px) {
+    #stats { margin-right: auto; }
+  }
 
-            <div class="setting-group">
-                <label>
-                    <input type="checkbox" id="blurStats">
-                    Blur Stats
-                </label>
-            </div>
-        </div>
-        <div id="textHookDisplay"></div>
-        <!-- ONNX Runtime Web for MeikiOCR -->
-        <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js"></script>
-        <script src="js/ankiconnect.js"></script>
-        <script src="js/icons.js"></script>
-        <script src="js/settings.js"></script>
-        <script src="js/timer.js"></script>
-        <script src="js/texthook.js"></script>
-        <script src="js/capture.js"></script>
-        <script src="js/meikiocr.js"></script>
-        <script src="js/detect.js"></script>
-        <script src="js/index.js"></script>
-    </body>
+  @media (max-width: 420px) {
+    header { font-size: 13px; padding-left: calc(10px + var(--safe-left)); gap: 2px; }
+    header button { padding: 6px; }
+  }
+
+  @media (max-width: 380px) {
+    header { font-size: 12px; gap: 0; }
+    header button { padding: 5px; }
+  }
+
+  /* 36 px tap targets around 20 px icons. */
+  header button {
+    display: flex;
+    background: none;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    padding: 8px;
+    opacity: 0.85;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  header button:hover { opacity: 1; }
+
+  svg.icon { width: 20px; height: 20px; }
+
+  #timer .pause, #timer.running .play { display: none; }
+  #timer.running .pause { display: inline; }
+
+  #fullscreen .exit, #fullscreen.on .enter { display: none; }
+  #fullscreen.on .exit { display: inline; }
+  #fullscreen[hidden] { display: none; }
+
+  #undo:disabled { opacity: 0.3; cursor: default; }
+
+  /* ---- lines ---- */
+
+  #lines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9em;
+    padding: 4px calc(14px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(14px + var(--safe-left));
+  }
+
+  .line {
+    font-size: var(--size);
+    letter-spacing: 0.02em;
+    overflow-wrap: anywhere;
+  }
+
+  .line.new { animation: appear 0.5s ease; }
+
+  @keyframes appear {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* A line arrived while paused and was dropped. */
+  body.flash { animation: flash 0.5s cubic-bezier(0.4, 0, 0.6, 1); }
+
+  @keyframes flash {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.5; }
+  }
+
+  /* ---- pomodoro ---- */
+
+  /* Leaves room for the bar under the last line. */
+  body.pomo #lines { padding-bottom: calc(40px + var(--safe-bottom)); }
+
+  #pomo {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 15;
+    height: calc(8px + var(--safe-bottom));
+    background: var(--accent);
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #pomo[hidden] { display: none; }
+
+  /* A taller touch target than the bar itself. */
+  #pomo::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 20px;
+  }
+
+  #pomo-fill {
+    width: 0;
+    height: 100%;
+    background: var(--text);
+    transition: width 0.5s linear, opacity 0.3s ease;
+  }
+
+  #pomo.break #pomo-fill { opacity: 0.5; }
+  #pomo.paused { opacity: 0.5; }
+
+  #pomo-label {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--text);
+    font-family: system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  #pomo.show #pomo-label { opacity: 1; }
+  @media (hover: hover) {
+    #pomo:hover #pomo-label { opacity: 1; }
+  }
+
+  /* ---- settings ---- */
+  /*
+   * The panel and its controls are tinted toward the text color, so they read
+   * as raised surfaces on any background: lighter on dark themes, darker on
+   * light ones.
+   */
+
+  #settings {
+    --panel: color-mix(in srgb, var(--text) 7%, var(--bg));
+    --control: color-mix(in srgb, var(--text) 13%, var(--bg));
+    --control-hover: color-mix(in srgb, var(--text) 19%, var(--bg));
+    --sep: color-mix(in srgb, var(--text) 12%, transparent);
+
+    position: fixed;
+    top: calc(42px + var(--safe-top));
+    right: calc(10px + var(--safe-right));
+    z-index: 30;
+    width: min(400px, calc(100vw - 20px - var(--safe-left) - var(--safe-right)));
+    max-height: calc(100vh - 54px - var(--safe-top) - var(--safe-bottom));
+    /* phones: excludes the address bar */
+    max-height: calc(100dvh - 54px - var(--safe-top) - var(--safe-bottom));
+    overflow-y: auto;
+    padding: 6px 16px 16px;
+    background: var(--panel);
+    border: 1px solid var(--sep);
+    border-radius: 10px;
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+
+  #settings[hidden] { display: none; }
+
+  #settings h2 {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--soft);
+    margin: 16px 0 4px;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 40px;
+    border-bottom: 1px solid var(--sep);
+  }
+
+  .row:last-of-type, .row + #custom-font { border-bottom: 0; }
+
+  .row label { flex: 1; cursor: pointer; }
+
+  #settings input, #settings select, #settings button {
+    font: inherit;
+    color: var(--text);
+    background-color: var(--control);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    height: 30px;
+    padding: 0 10px;
+    outline: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+
+  #settings button { cursor: pointer; }
+  /* background-color, not background: the select's arrow is a background image. */
+  #settings button:hover, #settings select:hover { background-color: var(--control-hover); }
+  #settings input:focus-visible, #settings select:focus-visible, #settings button:focus-visible {
+    border-color: var(--soft);
+  }
+
+  #settings ::placeholder { color: var(--soft); opacity: 0.7; }
+
+  /* Font size: − value + */
+  .stepper { display: flex; gap: 4px; }
+  #settings .stepper button { width: 30px; padding: 0; font-size: 16px; }
+  #settings .stepper input {
+    width: 48px;
+    padding: 0;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield;
+  }
+  .stepper input::-webkit-inner-spin-button,
+  .stepper input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+  #settings select {
+    width: 168px;
+    padding-right: 28px;
+    appearance: none;
+    cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--soft) 50%),
+                      linear-gradient(135deg, var(--soft) 50%, transparent 50%);
+    background-position: right 14px top 13px, right 9px top 13px;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+  }
+
+  #settings select option { background: var(--bg); color: var(--text); }
+
+  /* Color swatches */
+  #settings input[type=color] {
+    width: 48px;
+    padding: 3px;
+    cursor: pointer;
+  }
+  #settings input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  #settings input[type=color]::-webkit-color-swatch { border: 1px solid var(--sep); border-radius: 4px; }
+  #settings input[type=color]::-moz-color-swatch { border: 1px solid var(--sep); border-radius: 4px; }
+
+  /* Checkboxes as switches */
+  #settings input[type=checkbox] {
+    appearance: none;
+    position: relative;
+    flex: none;
+    width: 36px;
+    height: 20px;
+    padding: 0;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  #settings input[type=checkbox]::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--soft);
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  #settings input[type=checkbox]:checked { background: var(--text); }
+  #settings input[type=checkbox]:checked::after { transform: translateX(16px); background: var(--bg); }
+
+  #settings .row input[type=text] { width: 168px; }
+
+  #custom-font { width: 100%; margin: 2px 0 8px; }
+  #custom-font[hidden] { display: none; }
+
+  .hint { font-size: 12px; color: var(--soft); margin: 2px 0 10px; }
+  .hint code { font-size: 11px; padding: 1px 4px; border-radius: 3px; background: var(--control); }
+
+  .rule { display: flex; gap: 6px; margin-bottom: 6px; }
+  #settings .rule input { flex: 1; min-width: 0; font-family: ui-monospace, monospace; font-size: 13px; }
+  #settings .rule input.bad { border-color: var(--line-bad); }
+  #settings .rule button { flex: none; width: 30px; padding: 0; color: var(--soft); }
+  #settings .rule button:hover { color: var(--text); }
+
+  #settings #add-rule { width: 100%; background: transparent; border: 1px dashed var(--sep); color: var(--soft); }
+  #settings #add-rule:hover { color: var(--text); background: var(--control); }
+
+  #settings #reset { width: 100%; height: 36px; margin-top: 20px; }
+
+  /* iOS zooms the page into any field with text under 16 px. */
+  @media (pointer: coarse) {
+    #settings input, #settings select, #settings .rule input { font-size: 16px; }
+    #settings input, #settings select, #settings button { height: 36px; }
+    #settings .stepper button, #settings .rule button { width: 36px; }
+  }
+
+  #settings #reset:hover {
+    color: var(--line-bad);
+    background: color-mix(in srgb, var(--line-bad) 14%, var(--control));
+  }
+</style>
+</head>
+<body>
+  <header>
+    <span id="stats" title="Reading time (characters per hour) characters / lines"></span>
+    <button id="timer" title="Start/pause the reading timer">
+      <svg class="icon play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15a.75.75 0 0 0 1.13.65l12.5-7.5a.75.75 0 0 0 0-1.3L8.13 3.85A.75.75 0 0 0 7 4.5Z"/></svg>
+      <svg class="icon pause" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></svg>
+    </button>
+    <button id="undo" title="Undo the newest line">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"/></svg>
+    </button>
+    <button id="fullscreen" title="Fullscreen" hidden>
+      <svg class="icon enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
+      <svg class="icon exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25"/></svg>
+    </button>
+    <button id="gear" title="Settings">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+    </button>
+  </header>
+
+  <div id="settings" hidden>
+    <h2>Text</h2>
+    <div class="row">
+      <label for="s-size">Font size</label>
+      <div class="stepper"><button id="size-down" title="Smaller">−</button><input id="s-size" type="number" min="10" max="100"><button id="size-up" title="Larger">+</button></div>
+    </div>
+    <div class="row">
+      <label for="s-font">Font</label>
+      <select id="s-font">
+        <option>Noto Serif JP</option>
+        <option>Noto Sans JP</option>
+        <option>Klee One</option>
+        <option>Shippori Mincho</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </div>
+    <input id="custom-font" type="text" placeholder="Font family installed on this device" hidden>
+    <div class="row"><label for="s-bg">Background</label><input id="s-bg" type="color"></div>
+    <div class="row"><label for="s-fg">Text</label><input id="s-fg" type="color"></div>
+
+    <h2>Behavior</h2>
+    <div class="row"><label for="s-blur">Blur stats</label><input id="s-blur" type="checkbox"></div>
+    <div class="row"><label for="s-flash">Flash on missed line</label><input id="s-flash" type="checkbox"></div>
+    <div class="row"><label for="s-unpause">Unpause on new line</label><input id="s-unpause" type="checkbox"></div>
+    <div class="row"><label for="s-nodupes">Prevent global duplicate</label><input id="s-nodupes" type="checkbox"></div>
+
+    <h2>Pomodoro</h2>
+    <div class="row"><label for="s-pomo">Show bar</label><input id="s-pomo" type="checkbox"></div>
+    <div class="row">
+      <label for="s-pomo-read">Read (min)</label>
+      <div class="stepper"><button data-step="s-pomo-read:-1" title="Shorter">−</button><input id="s-pomo-read" type="number" min="1" max="180"><button data-step="s-pomo-read:1" title="Longer">+</button></div>
+    </div>
+    <div class="row">
+      <label for="s-pomo-break">Break (min)</label>
+      <div class="stepper"><button data-step="s-pomo-break:-1" title="Shorter">−</button><input id="s-pomo-break" type="number" min="1" max="180"><button data-step="s-pomo-break:1" title="Longer">+</button></div>
+    </div>
+
+    <h2>Anki</h2>
+    <div class="row"><label for="s-anki">Screenshot new cards</label><input id="s-anki" type="checkbox"></div>
+    <div class="row"><label for="s-anki-url">AnkiConnect</label><input id="s-anki-url" type="text" spellcheck="false"></div>
+    <div class="row"><label for="s-anki-field">Picture field</label><input id="s-anki-field" type="text" spellcheck="false"></div>
+    <p class="hint">Adds a screenshot of the captured window to each card made today. AnkiConnect's <code>webCorsOriginList</code> must include this page's origin.</p>
+
+    <h2>Replacements</h2>
+    <p class="hint">Applied in order to every new line. JavaScript regex, all matches; leave the replacement empty to delete. <code>$1</code> inserts a group.</p>
+    <div id="rules"></div>
+    <button id="add-rule">Add rule</button>
+
+    <button id="reset">Reset session</button>
+  </div>
+
+  <div id="lines"></div>
+  <div id="pomo" hidden><div id="pomo-fill"></div><div id="pomo-label"></div></div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  // ---- storage ----------------------------------------------------------
+  //
+  // This browser's localStorage keeps:
+  //   thk.settings  appearance, behavior, Anki, replacement rules
+  //   thk.session   the counters, the timer and the newest lines
+  //   thk.pomo      the pomodoro
+  //   thk.ankiCrop  the screenshot crop (see the Anki script)
+
+  function load(key, fallback) {
+    try {
+      const v = JSON.parse(localStorage.getItem(key));
+      return v === null ? fallback : v;
+    } catch (err) {
+      return fallback;
+    }
+  }
+
+  function save(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (err) {
+      console.warn('Failed to save', key, err);
+    }
+  }
+
+  const DEFAULTS = {
+    size: window.matchMedia('(max-width: 600px)').matches ? 22 : 28,
+    font: 'Noto Serif JP',
+    customFont: '',
+    bg: '#000000',
+    fg: '#ededed',
+    blur: false,
+    flash: true,
+    unpause: true,
+    noDupes: false,     // drop a line already shown anywhere in this session
+    rules: [],          // [{ pattern, replace }]
+    pomo: true,         // the pomodoro bar
+    pomoRead: 25,       // minutes
+    pomoBreak: 5,
+    anki: true,         // screenshot new Anki cards
+    ankiUrl: 'http://localhost:8765',
+    ankiField: 'Picture',
+  };
+
+  const settings = Object.assign({}, DEFAULTS, load('thk.settings', {}));
+  // lines: [{ key, text }] shown on this page. count and chars cover every
+  // line of the session, including ones no longer kept. elapsed is the
+  // timer's total up to when it last started.
+  const session = Object.assign({ lines: [], count: 0, chars: 0, elapsed: 0, running: false },
+                                load('thk.session', {}));
+  session.running = false;  // a reload is a break
+
+  const saveSettings = () => save('thk.settings', settings);
+  const KEEP_LINES = 200;   // lines kept across a reload
+  const saveSession = () => save('thk.session', {
+    ...session, elapsed: elapsedNow(), running: false, lines: session.lines.slice(-KEEP_LINES),
+  });
+
+  // ---- appearance -------------------------------------------------------
+
+  const GOOGLE_FONTS = ['Noto Serif JP', 'Noto Sans JP', 'Klee One', 'Shippori Mincho'];
+
+  function applyLook() {
+    const root = document.documentElement.style;
+    const family = settings.font === 'custom' ? settings.customFont : settings.font;
+    root.setProperty('--font', `'${family || 'serif'}', serif`);
+    root.setProperty('--size', `${settings.size}px`);
+    root.setProperty('--bg', settings.bg);
+    root.setProperty('--text', settings.fg);
+    document.body.classList.toggle('blur-stats', settings.blur);
+    document.body.classList.toggle('pomo', settings.pomo);
+    $('pomo').hidden = !settings.pomo;
+
+    // Only the chosen Google font is fetched. Without internet on the viewing
+    // device it falls back to the system's serif font.
+    const css = $('font-css');
+    const href = GOOGLE_FONTS.includes(family)
+      ? `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, '+')}:wght@400&display=swap`
+      : '';
+    if (css.getAttribute('href') !== href) css.setAttribute('href', href);
+  }
+
+  // ---- stats and timer --------------------------------------------------
+  //
+  // While the timer runs, the time since it started is added on to elapsed.
+  // It pauses itself after a minute without a new line, taking that idle
+  // minute back off (like Kizuna).
+
+  const IDLE_PAUSE = 60000;
+  let startedAt = Date.now();
+  let lastLineAt = 0;
+
+  function elapsedNow() {
+    return session.elapsed + (session.running ? Date.now() - startedAt : 0);
+  }
+
+  function setRunning(on) {
+    if (session.running === on) return;
+    session.elapsed = elapsedNow();
+    session.running = on;
+    startedAt = Date.now();
+    $('timer').classList.toggle('running', on);
+    saveSession();
+    renderStats();
+  }
+
+  function idleCheck() {
+    if (!session.running) return;
+    const since = Math.max(startedAt, lastLineAt);
+    if (Date.now() - since < IDLE_PAUSE) return;
+    // Counted up to the last line (or the start), not the minute after it.
+    session.elapsed += since - startedAt;
+    session.running = false;
+    $('timer').classList.remove('running');
+    saveSession();
+  }
+
+  function clock(ms) {
+    const s = Math.floor(ms / 1000);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
+  }
+
+  function renderStats() {
+    // Kizuna's layout: time (chars per hour) chars / lines. Both use whole
+    // seconds, so the rate changes with the clock (or a new line), not in
+    // between.
+    const ms = Math.floor(elapsedNow() / 1000) * 1000;
+    const perHour = ms >= 1000 ? Math.round(session.chars / (ms / 3600000)) : 0;
+    const num = (n) => n.toLocaleString('en-US');
+    $('stats').textContent = `${clock(ms)} (${num(perHour)}/h) ${num(session.chars)} / ${num(session.count)}`;
+    $('undo').disabled = session.lines.length === 0;
+  }
+
+  // Characters read: only ones with linguistic content (kana, kanji,
+  // letters, digits), not punctuation, brackets, quotes or symbols.
+  const NOT_JAPANESE_REGEX = /[^0-9A-Z○◯々-〇〻ぁ-ゖゝ-ゞァ-ヺー０-９Ａ-Ｚｦ-ﾝ\p{Radical}\p{Unified_Ideograph}]+/gimu;
+  const countChars = (text) => [...text.replace(NOT_JAPANESE_REGEX, '')].length;
+
+  $('timer').onclick = () => {
+    const start = !session.running;
+    setRunning(start);
+    pomoFollow(start);
+  };
+  $('stats').onclick = () => $('stats').classList.toggle('reveal');
+
+  setInterval(() => {
+    idleCheck();
+    renderStats();
+  }, 250);
+
+  // Keeps the time read since the last save.
+  window.addEventListener('pagehide', saveSession);
+
+  // ---- lines ------------------------------------------------------------
+
+  const container = $('lines');
+
+  // New lines push the old ones up with a short glide instead of a jump:
+  // scroll to the bottom immediately, then start the container shifted back
+  // down by the distance scrolled and animate that offset to zero (FLIP).
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let glide = null;
+
+  function lineElement(line, animate) {
+    const el = document.createElement('div');
+    el.className = animate ? 'line new' : 'line';
+    el.dataset.key = line.key;
+    el.textContent = line.text;
+    return el;
+  }
+
+  function showLine(line) {
+    // Scrolled up to re-read something: add the line without moving.
+    const doc = document.documentElement;
+    if (!glide && window.scrollY + window.innerHeight < doc.scrollHeight - 80) {
+      container.appendChild(lineElement(line, true));
+      return;
+    }
+
+    // Where the lines are drawn right now, including any glide in progress,
+    // so a line arriving mid-animation continues from there.
+    const carry = glide ? new DOMMatrixReadOnly(getComputedStyle(container).transform).m42 : 0;
+    if (glide) glide.cancel();
+    const before = window.scrollY;
+
+    container.appendChild(lineElement(line, true));
+
+    // keep the newest line in view as they stack down
+    window.scrollTo(0, document.documentElement.scrollHeight);
+    const offset = window.scrollY - before + carry;
+
+    glide = null;
+    if (offset > 0 && !reduceMotion) {
+      glide = container.animate(
+        [{ transform: `translateY(${offset}px)` }, { transform: 'translateY(0)' }],
+        { duration: 250, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)' }
+      );
+      glide.onfinish = () => { glide = null; };
+    }
+  }
+
+  function flash() {
+    document.body.classList.remove('flash');
+    void document.body.offsetWidth;  // restart the animation
+    document.body.classList.add('flash');
+  }
+
+  document.body.addEventListener('animationend', (e) => {
+    if (e.animationName === 'flash') document.body.classList.remove('flash');
+  });
+
+  // Keys only tell the lines apart on the page.
+  let keySeq = 0;
+  const newKey = () => `${Date.now()}-${keySeq++}`;
+
+  function addLine(line) {
+    session.lines.push(line);
+    saveSession();
+    renderStats();
+    showLine(line);
+  }
+
+  // A line from the OCR, or anything else on the page that fires
+  // kizuna:add-line (as the Kizuna texthooker takes them).
+  function receiveLine(raw) {
+    const text = applyRules(raw).trim();
+    if (text === '') return;
+
+    // Checked before the pause logic: a repeat is ignored outright, so it
+    // neither unpauses the timer nor flashes as a missed line.
+    if (settings.noDupes && session.lines.some((l) => l.text === text)) return;
+
+    // Paused means not reading: the line is dropped, not shown or counted.
+    if (!session.running && !settings.unpause) {
+      if (settings.flash) flash();
+      return;
+    }
+
+    session.count += 1;
+    session.chars += countChars(text);
+    lastLineAt = Date.now();
+    setRunning(true);
+    addLine({ key: newKey(), text });
+  }
+
+  window.addEventListener('kizuna:add-line', (e) => receiveLine(String(e.detail?.text ?? '')));
+
+  $('reset').onclick = () => {
+    if (!confirm('Clear all lines and reset the counters and timer?')) return;
+    Object.assign(session, { lines: [], count: 0, chars: 0, elapsed: 0, running: false });
+    $('timer').classList.remove('running');
+    container.replaceChildren();
+    saveSession();
+    renderStats();
+    $('settings').hidden = true;
+  };
+
+  // ---- replacements -----------------------------------------------------
+
+  function applyRules(text) {
+    for (const rule of settings.rules) {
+      if (!rule.pattern) continue;
+      try {
+        text = text.replace(new RegExp(rule.pattern, 'g'), rule.replace || '');
+      } catch (err) {
+        // Invalid pattern: skipped (and outlined red in the settings).
+      }
+    }
+    return text;
+  }
+
+  function validPattern(p) {
+    try {
+      new RegExp(p);
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function renderRules() {
+    const list = $('rules');
+    list.replaceChildren();
+    settings.rules.forEach((rule, i) => {
+      const row = document.createElement('div');
+      row.className = 'rule';
+
+      const pat = document.createElement('input');
+      pat.placeholder = 'pattern';
+      pat.value = rule.pattern;
+      pat.classList.toggle('bad', !validPattern(rule.pattern));
+      pat.oninput = () => {
+        rule.pattern = pat.value;
+        pat.classList.toggle('bad', !validPattern(pat.value));
+        saveSettings();
+      };
+
+      const rep = document.createElement('input');
+      rep.placeholder = 'replacement';
+      rep.value = rule.replace;
+      rep.oninput = () => { rule.replace = rep.value; saveSettings(); };
+
+      const del = document.createElement('button');
+      del.textContent = '×';
+      del.title = 'Remove rule';
+      del.onclick = () => { settings.rules.splice(i, 1); saveSettings(); renderRules(); };
+
+      row.append(pat, rep, del);
+      list.appendChild(row);
+    });
+  }
+
+  $('add-rule').onclick = () => {
+    settings.rules.push({ pattern: '', replace: '' });
+    saveSettings();
+    renderRules();
+    $('rules').lastChild.firstChild.focus();
+  };
+
+  // ---- discard ----------------------------------------------------------
+  //
+  // Drops the newest line, e.g. one the OCR misread, and takes it back off
+  // the counters. The timer is left alone.
+
+  $('undo').onclick = () => {
+    const line = session.lines.pop();
+    if (!line) return;
+    session.count = Math.max(0, session.count - 1);
+    session.chars = Math.max(0, session.chars - countChars(line.text));
+    const el = container.querySelector(`[data-key="${line.key}"]`);
+    if (el) el.remove();
+    saveSession();
+    renderStats();
+  };
+
+  // ---- fullscreen -------------------------------------------------------
+  //
+  // Gets rid of a phone's address bar.
+  // Hidden where the browser can't do it (iPhone Safari only allows video).
+
+  if (document.fullscreenEnabled) {
+    const fs = $('fullscreen');
+    fs.hidden = false;
+    fs.onclick = () => {
+      const req = document.fullscreenElement
+        ? document.exitFullscreen()
+        : document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+      req.catch((err) => console.warn('Fullscreen refused:', err));
+    };
+    document.addEventListener('fullscreenchange', () => {
+      const on = !!document.fullscreenElement;
+      fs.classList.toggle('on', on);
+      fs.title = on ? 'Exit fullscreen' : 'Fullscreen';
+    });
+  }
+
+  // ---- pomodoro ---------------------------------------------------------
+  //
+  // Read and break intervals that take turns by themselves, with a bell at
+  // each change: one strike when reading ends, two when the break does. Tap
+  // the bar to start or pause, hold it to reset. It runs on an end time, so
+  // a tab the browser slowed down in the background is never off.
+  //
+  // left: ms remaining while paused; null and not running = not started.
+
+  const pomo = Object.assign({ phase: 'read', running: false, left: null, endAt: 0 },
+                             load('thk.pomo', {}));
+  const savePomo = () => save('thk.pomo', pomo);
+  const HOLD = 600;
+  let pomoShowTimer = 0;
+  let audio = null;
+
+  const phaseLength = () => (pomo.phase === 'read' ? settings.pomoRead : settings.pomoBreak) * 60000;
+  const pomoLeft = () => Math.max(0, pomo.running ? pomo.endAt - Date.now() : (pomo.left ?? phaseLength()));
+
+  // A small bell, made on the spot: a few sine partials at a bell's ratios,
+  // each fading out on its own.
+  function strike(at) {
+    for (const [ratio, gain, decay] of [[1, 0.35, 2.4], [2, 0.18, 1.6], [2.76, 0.12, 1.1], [5.4, 0.05, 0.5]]) {
+      const osc = audio.createOscillator();
+      const env = audio.createGain();
+      osc.frequency.value = 1046.5 * ratio;  // C6
+      env.gain.setValueAtTime(0.0001, at);
+      env.gain.exponentialRampToValueAtTime(gain, at + 0.005);
+      env.gain.exponentialRampToValueAtTime(0.0001, at + decay);
+      osc.connect(env).connect(audio.destination);
+      osc.start(at);
+      osc.stop(at + decay);
+    }
+  }
+
+  function bell(times) {
+    if (!audio) return;
+    for (let i = 0; i < times; i++) strike(audio.currentTime + 0.05 + i * 0.4);
+  }
+
+  function renderPomo() {
+    const left = pomoLeft();
+    const started = pomo.running || pomo.left !== null;
+    const bar = $('pomo');
+    bar.classList.toggle('break', pomo.phase === 'break');
+    bar.classList.toggle('paused', started && !pomo.running);
+    $('pomo-fill').style.width = `${started ? (1 - left / phaseLength()) * 100 : 0}%`;
+
+    const s = Math.ceil(left / 1000);
+    const time = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    const what = pomo.phase === 'read' ? 'Reading' : 'Break';
+    $('pomo-label').textContent = !started ? 'Tap to start reading'
+      : pomo.running ? `${what} · ${time}` : `Paused · ${what} ${time}`;
+  }
+
+  function showPomoLabel(ms) {
+    $('pomo').classList.add('show');
+    clearTimeout(pomoShowTimer);
+    pomoShowTimer = setTimeout(() => $('pomo').classList.remove('show'), ms);
+  }
+
+  function pomoTick() {
+    if (pomo.running && Date.now() >= pomo.endAt) {
+      bell(pomo.phase === 'read' ? 1 : 2);
+      pomo.phase = pomo.phase === 'read' ? 'break' : 'read';
+      pomo.endAt = Date.now() + phaseLength();
+      savePomo();
+      showPomoLabel(5000);
+    }
+    renderPomo();
+  }
+
+  function pomoToggle() {
+    // The first tap also unlocks sound, which browsers only allow after one.
+    if (!audio && window.AudioContext) audio = new AudioContext();
+    if (audio && audio.state === 'suspended') audio.resume();
+
+    if (pomo.running) {
+      pomo.left = pomo.endAt - Date.now();
+      pomo.running = false;
+    } else {
+      pomo.endAt = Date.now() + (pomo.left ?? phaseLength());
+      pomo.left = null;
+      pomo.running = true;
+    }
+    savePomo();
+    renderPomo();
+    showPomoLabel(2500);
+  }
+
+  // The reading timer's button starts and stops a read block too (not a
+  // break, which runs on while you're away).
+  function pomoFollow(start) {
+    if (settings.pomo && pomo.phase === 'read' && pomo.running !== start) pomoToggle();
+  }
+
+  function pomoReset() {
+    Object.assign(pomo, { phase: 'read', running: false, left: null });
+    savePomo();
+    renderPomo();
+    showPomoLabel(2500);
+    if (navigator.vibrate) navigator.vibrate(30);
+  }
+
+  // Tap or hold, the same with a mouse, a pen or a finger.
+  {
+    const bar = $('pomo');
+    let holdTimer = 0;
+    let held = false;
+    bar.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      held = false;
+      holdTimer = setTimeout(() => { held = true; pomoReset(); }, HOLD);
+    });
+    bar.addEventListener('pointerup', () => {
+      clearTimeout(holdTimer);
+      if (!held && holdTimer) pomoToggle();
+      holdTimer = 0;
+    });
+    for (const type of ['pointerleave', 'pointercancel']) {
+      bar.addEventListener(type, () => { clearTimeout(holdTimer); holdTimer = 0; });
+    }
+    bar.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
+  setInterval(pomoTick, 500);
+
+  // ---- settings panel ---------------------------------------------------
+
+  function bind(id, key, read) {
+    const el = $(id);
+    if (el.type === 'checkbox') el.checked = settings[key];
+    else el.value = settings[key];
+    el.addEventListener('input', () => {
+      settings[key] = read(el);
+      saveSettings();
+      applyLook();
+      $('custom-font').hidden = settings.font !== 'custom';
+    });
+  }
+
+  bind('s-size', 'size', (el) => Math.min(100, Math.max(10, Number(el.value) || DEFAULTS.size)));
+
+  function stepSize(by) {
+    const el = $('s-size');
+    el.value = Math.min(100, Math.max(10, settings.size + by));
+    el.dispatchEvent(new Event('input'));
+  }
+
+  $('size-down').onclick = () => stepSize(-1);
+  $('size-up').onclick = () => stepSize(1);
+  bind('s-font', 'font', (el) => el.value);
+  bind('custom-font', 'customFont', (el) => el.value.trim());
+  bind('s-bg', 'bg', (el) => el.value);
+  bind('s-fg', 'fg', (el) => el.value);
+  bind('s-blur', 'blur', (el) => el.checked);
+  bind('s-flash', 'flash', (el) => el.checked);
+  bind('s-unpause', 'unpause', (el) => el.checked);
+  bind('s-nodupes', 'noDupes', (el) => el.checked);
+  bind('s-pomo', 'pomo', (el) => el.checked);
+  const minutes = (key) => (el) => Math.min(180, Math.max(1, Math.round(Number(el.value)) || DEFAULTS[key]));
+  bind('s-pomo-read', 'pomoRead', minutes('pomoRead'));
+  bind('s-pomo-break', 'pomoBreak', minutes('pomoBreak'));
+  bind('s-anki', 'anki', (el) => el.checked);
+  bind('s-anki-url', 'ankiUrl', (el) => el.value.trim() || DEFAULTS.ankiUrl);
+  bind('s-anki-field', 'ankiField', (el) => el.value.trim() || DEFAULTS.ankiField);
+  for (const btn of document.querySelectorAll('[data-step]')) {
+    const [id, by] = btn.dataset.step.split(':');
+    btn.onclick = () => {
+      const el = $(id);
+      el.value = Math.min(180, Math.max(1, Number(el.value) + Number(by)));
+      el.dispatchEvent(new Event('input'));
+      renderPomo();
+    };
+  }
+  $('custom-font').hidden = settings.font !== 'custom';
+
+  $('gear').onclick = (e) => {
+    e.stopPropagation();
+    $('settings').hidden = !$('settings').hidden;
+  };
+
+  // Click outside or Escape closes the panel.
+  document.addEventListener('click', (e) => {
+    // composedPath, not contains(): deleting a rule detaches the clicked button.
+    if (!$('settings').hidden && !e.composedPath().includes($('settings'))) $('settings').hidden = true;
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') $('settings').hidden = true;
+  });
+
+  // ---- restore ----------------------------------------------------------
+
+  applyLook();
+  renderPomo();
+  renderRules();
+  container.replaceChildren(...session.lines.map((l) => lineElement(l, false)));
+  renderStats();
+  window.scrollTo(0, document.documentElement.scrollHeight);
+</script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
+<script>
+  /**
+   * Local Japanese OCR, ported from the Meiki OCR userscript.
+   *
+   * Captures a screen region with getDisplayMedia, runs a two-stage ONNX pipeline
+   * in the browser, and dispatches recognized lines to the page as a
+   * `kizuna:add-line` CustomEvent. Nothing leaves the machine, apart from
+   * downloading the models once.
+   *
+   *   detection   meiki.text.detect.v0.1.320x192 — finds text line boxes
+   *   recognition meiki.text.rec.v0.960x32       — reads characters in each box
+   *
+   * Preprocessing and postprocessing follow the meikiocr Python library:
+   * https://github.com/rtr46/meikiocr
+   *
+   * Auto mode watches the region on a sampling grid and only runs OCR once the
+   * picture has settled, so a text box mid-animation isn't read half-drawn.
+   *
+   * Limitations: horizontal text only. Detection is capped at 64 boxes and
+   * recognition at 48 characters per line, which is ample for game text but not
+   * for dense pages. Trained on rendered game text, so handwriting and photos
+   * will disappoint.
+   */
+
+  (async function () {
+    'use strict';
+
+    // === CONFIG ===============================================================
+
+    // Detection: v0.1.320x192 — newer architecture (MobileNet v4 small + D-FINE),
+    // RGB input, stretch-resize (no letterbox), per-axis ratio unmap. ~30ms
+    // native CPU per the model card; expect ~2-4x in WASM.
+    const DETECT_MODEL_URL =
+    'https://huggingface.co/rtr46/meiki.text.detect.v0/resolve/main/meiki.text.detect.v0.1.320x192.onnx';
+    const DETECT_W = 320;
+    const DETECT_H = 192;
+    const DET_CONF_THRESHOLD = 0.4;
+    // Overlap above which two detected boxes are treated as the same text line.
+    const DET_OVERLAP_THRESHOLD = 0.6;
+
+    // Recognition: meiki.text.rec.v0 horizontal model. Input is 960x32 RGB,
+    // aspect-preserving fit with bottom+right zero padding.
+    const RECOG_MODEL_URL =
+    'https://huggingface.co/rtr46/meiki.txt.recognition.v0/resolve/main/meiki.text.rec.v0.960x32.onnx';
+    const RECOG_W = 960;
+    const RECOG_H = 32;
+    const REC_CONF_THRESHOLD = 0.1;
+
+    // Postprocessing knobs from the meikiocr library.
+    const PUNCT_CONF_FACTOR = 0.2;
+    const X_OVERLAP_THRESHOLD = 0.3;
+    const EPSILON = 1e-6;
+
+    // Repeat suppression. A line is dropped if it's too close to the previous
+    // dispatched line — this absorbs recognition wobble (a bracket read as a
+    // pipe, a clipped leading 「, a dropped character) that would otherwise
+    // arrive as a near-identical duplicate.
+    //
+    // All three conditions must hold before a *near* match is suppressed; an
+    // exact match is always suppressed regardless of length. Raising MAX_EDITS
+    // catches more wobble but starts eating real lines, so widen MIN_LENGTH at
+    // the same time if you do.
+    const DEDUP_MAX_EDITS = 2;    // absolute edit-distance ceiling
+    const DEDUP_MAX_RATIO = 0.1;  // and no more than this fraction of the line
+    const DEDUP_MIN_LENGTH = 10;  // shorter lines use exact matching only
+
+    // Drop any line that contains zero kana/kanji. This is what meikipop's
+    // provider does — it kills English UI, watermarks, romaji subtitles, etc.
+    // Hiragana U+3040–309F, Katakana U+30A0–30FF, CJK Unified U+4E00–9FAF.
+    const JAPANESE_REGEX = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/;
+
+    // Swapped-pair fixes (pairs the model is known to emit reversed).
+    const SWAPPED_PAIRS = {
+      '儡傀': '傀儡',
+      '談冗': '冗談',
+      '汰淘': '淘汰',
+      '沱滂': '滂沱',
+      '攣痙': '痙攣',
+      '酊酩': '酩酊',
+      '麭麺': '麺麭',
+      '哭慟': '慟哭',
+    };
+
+    // Change detection.
+    const SAMPLE_COLS = 48;
+    const SAMPLE_ROWS = 24;
+    const CHANGE_RATIO = 0.03;
+    const PIXEL_THRESHOLD = 18;
+
+    const POLL_MS = 80;
+    const STABLE_TICKS = 5;
+    const FORCE_OCR_INTERVAL_MS = 4000;
+
+    // === LOGGER ===============================================================
+
+    function log(...args) { console.log('[MeikiOCR]', ...args); }
+
+    // === UI ===================================================================
+
+    const ui = createUI();
+
+    // === MODEL LOADING ========================================================
+
+    let detectSession = null;
+    let recogSession = null;
+    let modelsReady = false;
+
+    async function loadModels() {
+      ui.setStatus('Loading models...');
+      ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+
+      const [detectBuf, recogBuf] = await Promise.all([
+        fetchModelCached('detect_v01_320x192', DETECT_MODEL_URL),
+        fetchModelCached('recog_v0_960x32',    RECOG_MODEL_URL),
+      ]);
+
+      ui.setStatus('Creating ONNX sessions...');
+      detectSession = await ort.InferenceSession.create(detectBuf, { executionProviders: ['wasm'] });
+      recogSession  = await ort.InferenceSession.create(recogBuf,  { executionProviders: ['wasm'] });
+
+      modelsReady = true;
+      ui.setStatus('Ready');
+      ui.setReady(true);
+      log('Models loaded.');
+    }
+
+    // Models are kept in the browser's Cache Storage, keyed by URL, so changing
+    // model URLs above implicitly invalidates the old cache rather than serving
+    // stale weights.
+    const MODEL_CACHE = 'meiki-ocr-models';
+
+    async function fetchModelCached(key, url) {
+      ui.setStatus(`Checking cache for ${key}...`);
+
+      let cache = null;
+      try {
+        cache = await caches.open(MODEL_CACHE);
+        const cached = await cache.match(url);
+        if (cached) {
+          ui.setStatus(`Loading ${key} from cache...`);
+          return await cached.arrayBuffer();
+        }
+      } catch (e) { /* cache miss, or no Cache Storage (not https) */ }
+
+      ui.setStatus(`Downloading ${key} (first run only)...`);
+      const buf = await fetchArrayBuffer(url, (pct) => {
+        ui.setStatus(`Downloading ${key}... ${pct}%`);
+      });
+
+      try { if (cache) await cache.put(url, new Response(buf)); }
+      catch (e) { console.warn('[MeikiOCR] Could not cache model:', e); }
+
+      return buf;
+    }
+
+    // Hugging Face serves the models with CORS headers, so a plain fetch works.
+    async function fetchArrayBuffer(url, onProgress) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+
+      const total = Number(res.headers.get('Content-Length')) || 0;
+      if (!total || !res.body) return res.arrayBuffer();
+
+      const reader = res.body.getReader();
+      const chunks = [];
+      let loaded = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.length;
+        if (onProgress) onProgress(Math.min(100, Math.round((loaded / total) * 100)));
+      }
+
+      const bytes = new Uint8Array(loaded);
+      let offset = 0;
+      for (const c of chunks) { bytes.set(c, offset); offset += c.length; }
+      return bytes.buffer;
+    }
+
+    // === CAPTURE STREAM =======================================================
+
+    let captureStream = null;
+    let captureVideo = null;
+    let scanRegion = null;
+    let captureBusy = false;
+
+    async function initStream() {
+      // Browsers only offer screen capture to secure pages: https, or
+      // http://localhost. Elsewhere (a LAN address, file://) mediaDevices
+      // doesn't exist at all.
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        throw new Error(window.isSecureContext
+          ? 'This browser has no screen capture'
+          : 'Screen capture needs https or http://localhost');
+      }
+      captureStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { mediaSource: 'window' },
+        audio: false,
+      });
+
+      captureVideo = document.createElement('video');
+      captureVideo.srcObject = captureStream;
+      captureVideo.autoplay = true;
+      captureVideo.muted = true;
+      captureVideo.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;';
+      document.body.appendChild(captureVideo);
+
+      await new Promise((resolve) => { captureVideo.onloadedmetadata = resolve; });
+      log(`Stream ready: ${captureVideo.videoWidth}x${captureVideo.videoHeight}`);
+
+      captureStream.getTracks()[0].addEventListener('ended', () => {
+        log('Stream ended');
+        captureVideo?.remove();
+        captureStream = null;
+        captureVideo = null;
+        if (autoController.running) autoController.stop();
+      });
+    }
+
+    function grabFrame() {
+      const canvas = document.createElement('canvas');
+      canvas.width = captureVideo.videoWidth;
+      canvas.height = captureVideo.videoHeight;
+      canvas.getContext('2d').drawImage(captureVideo, 0, 0);
+      return canvas;
+    }
+
+    function grabRegionCanvas() {
+      if (!scanRegion) return null;
+      const { x, y, w, h } = scanRegion;
+      const full = grabFrame();
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(full, x, y, w, h, 0, 0, w, h);
+      return c;
+    }
+
+    // === CHANGE DETECTION =====================================================
+
+    function sampleCanvas(canvas) {
+      const W = canvas.width, H = canvas.height;
+      const data = canvas.getContext('2d').getImageData(0, 0, W, H).data;
+      const out = new Float32Array(SAMPLE_COLS * SAMPLE_ROWS);
+      for (let r = 0; r < SAMPLE_ROWS; r++) {
+        for (let c = 0; c < SAMPLE_COLS; c++) {
+          const px = Math.floor((c + 0.5) * W / SAMPLE_COLS);
+          const py = Math.floor((r + 0.5) * H / SAMPLE_ROWS);
+          const i = (py * W + px) * 4;
+          out[r * SAMPLE_COLS + c] = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+        }
+      }
+      return out;
+    }
+
+    function diffSamples(a, b) {
+      let changed = 0;
+      for (let i = 0; i < a.length; i++) {
+        if (Math.abs(a[i] - b[i]) > PIXEL_THRESHOLD) changed++;
+      }
+      return changed / a.length;
+    }
+
+    // === DETECTION ============================================================
+    //
+    // Mirrors meiki.text.detect.v0.1.320x192's official inference script:
+    //   - cv2.resize to 320x192 with INTER_LINEAR (we use canvas drawImage which
+    //     is bilinear by default)
+    //   - per-axis ratios — no letterbox/aspect preservation
+    //   - normalize /255, RGB, NCHW
+    //   - second "orig_target_sizes" input = [[320, 192]] int64 (model unmaps
+    //     coordinates back into 320x192 space internally; we then apply per-axis
+    //     ratios to get back to source coords)
+
+    // Overlap of two boxes as a fraction of the smaller one's area.
+    function boxOverlapRatio(a, b) {
+      const ix = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]));
+      const iy = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+      const inter = ix * iy;
+      if (inter <= 0) return 0;
+      const areaA = (a[2] - a[0]) * (a[3] - a[1]);
+      const areaB = (b[2] - b[0]) * (b[3] - b[1]);
+      return inter / (Math.min(areaA, areaB) + EPSILON);
+    }
+
+    async function runDetection(img) {
+      const origW = img.width;
+      const origH = img.height;
+
+      const offscreen = new OffscreenCanvas(DETECT_W, DETECT_H);
+      const ctx = offscreen.getContext('2d');
+      // Stretch — no aspect preservation. The model was trained this way.
+      ctx.drawImage(img, 0, 0, origW, origH, 0, 0, DETECT_W, DETECT_H);
+
+      const imageData = ctx.getImageData(0, 0, DETECT_W, DETECT_H);
+      const pixels = imageData.data;
+
+      // RGB, NCHW, /255.
+      const chSize = DETECT_W * DETECT_H;
+      const tensor = new Float32Array(3 * chSize);
+      for (let i = 0; i < chSize; i++) {
+        tensor[0 * chSize + i] = pixels[i * 4 + 0] / 255.0;
+        tensor[1 * chSize + i] = pixels[i * 4 + 1] / 255.0;
+        tensor[2 * chSize + i] = pixels[i * 4 + 2] / 255.0;
+      }
+
+      const imageTensor = new ort.Tensor('float32', tensor, [1, 3, DETECT_H, DETECT_W]);
+      const sizesTensor = new ort.Tensor(
+        'int64',
+        BigInt64Array.from([BigInt(DETECT_W), BigInt(DETECT_H)]),
+        [1, 2],
+      );
+
+      const inputNames = detectSession.inputNames;
+      const feeds = {
+        [inputNames[0]]: imageTensor,
+  [inputNames[1]]: sizesTensor,
+      };
+
+      const results = await detectSession.run(feeds);
+
+      // Model returns three outputs (labels, boxes, scores). We don't care about
+      // labels for detection. Order in outputNames isn't guaranteed across model
+      // revisions, so look them up by shape rather than position: boxes is the
+      // 3-D tensor (batch, N, 4); scores is 2-D (batch, N).
+      let boxesOut = null;
+      let scoresOut = null;
+      for (const name of detectSession.outputNames) {
+        const t = results[name];
+        if (t.dims.length === 3 && t.dims[2] === 4) boxesOut = t;
+        else if (t.dims.length === 2) scoresOut = t;
+      }
+      if (!boxesOut || !scoresOut) {
+        throw new Error('Unexpected detection output shapes: ' +
+        detectSession.outputNames.map(n => `${n}=${results[n].dims.join('x')}`).join(', '));
+      }
+
+      const rawBoxes = boxesOut.data;
+      const rawScores = scoresOut.data;
+      const numBoxes = rawScores.length;
+
+      const ratioW = DETECT_W / origW;
+      const ratioH = DETECT_H / origH;
+
+      const scored = [];
+      for (let i = 0; i < numBoxes; i++) {
+        const score = rawScores[i];
+        if (score < DET_CONF_THRESHOLD) continue;
+
+        // Coords are in 320x192 space; divide by per-axis ratio to get back to
+        // source coords. This is what the official inference script does.
+        const x1 = Math.max(0, Math.min(origW, Math.round(rawBoxes[i * 4 + 0] / ratioW)));
+        const y1 = Math.max(0, Math.min(origH, Math.round(rawBoxes[i * 4 + 1] / ratioH)));
+        const x2 = Math.max(0, Math.min(origW, Math.round(rawBoxes[i * 4 + 2] / ratioW)));
+        const y2 = Math.max(0, Math.min(origH, Math.round(rawBoxes[i * 4 + 3] / ratioH)));
+
+        if (x2 <= x1 || y2 <= y1) continue;
+        scored.push({ box: [x1, y1, x2, y2], score });
+      }
+
+      // Suppress overlapping detections. D-FINE is a DETR-style detector with no
+      // NMS in its head, so several queries can lock onto the same text line and
+      // the official inference script's confidence threshold alone won't separate
+      // them. Two boxes on one line means that line gets recognized twice and,
+      // because dispatch() joins lines with '', the sentence comes back doubled
+      // with no visible seam.
+      //
+      // Denominator is min(areaA, areaB) rather than the union, so a box wholly
+      // contained in a larger one is caught too — union-IoU would score that pair
+      // low and let it through. Stacked text lines in a VN box overlap very
+      // little vertically, so this doesn't merge real neighbors.
+      scored.sort((a, b) => b.score - a.score);
+      const kept = [];
+      for (const cand of scored) {
+        let duplicate = false;
+        for (const k of kept) {
+          if (boxOverlapRatio(cand.box, k.box) > DET_OVERLAP_THRESHOLD) { duplicate = true; break; }
+        }
+        if (duplicate) {
+          log(`  suppressed overlapping box ${cand.box.join(',')} (conf ${cand.score.toFixed(2)})`);
+          continue;
+        }
+        kept.push(cand);
+      }
+
+      const boxes = kept.map(k => k.box);
+
+      // Sort top-to-bottom so reading order is natural for horizontal text.
+      boxes.sort((a, b) => a[1] - b[1]);
+
+      return { boxes, origW, origH };
+    }
+
+    // === RECOGNITION ==========================================================
+    //
+    // For each detected line:
+    //   1. Crop from the region canvas using the source-coord bbox.
+    //   2. Scale so height = 32, preserving aspect ratio. If the resulting width
+    //      would exceed 960, scale BOTH dimensions down so width fits — height
+    //      ends up < 32 in this case. Track both effective_w and effective_h.
+    //   3. Pad bottom and right with zeros to 960x32.
+    //   4. Run model. Output is (labels, boxes, scores), where boxes are in the
+    //      960x32 recognition space.
+    //   5. Discard candidates that fall in the padding region, map coords back
+    //      into the crop, then translate by the crop origin to get global coords.
+    //   6. Apply punct confidence factor, NMS by x-overlap (symmetric denominator),
+    //      sort left-to-right, then apply the swapped-pair fix.
+
+    function isPunct(ch) {
+      // Unicode category "P*" covers ASCII punctuation, fullwidth punctuation,
+      // brackets, quotes, etc. The Python `unicodedata.category()` reference
+      // uses this check; in JS we approximate via Unicode property escape.
+      return /\p{P}/u.test(ch);
+    }
+
+    function fixSwappedPairs(text, chars) {
+      for (const [wrong, correct] of Object.entries(SWAPPED_PAIRS)) {
+        let idx = text.indexOf(wrong);
+        while (idx !== -1 && idx + 1 < chars.length) {
+          text = text.slice(0, idx) + correct + text.slice(idx + 2);
+          // Swap the char entries so bboxes line up with the corrected order.
+          const tmp = chars[idx].char;
+          chars[idx].char = chars[idx + 1].char;
+          chars[idx + 1].char = tmp;
+          idx = text.indexOf(wrong, idx + 2);
+        }
+      }
+      return { text, chars };
+    }
+
+    async function recognizeBox(regionImg, box) {
+      const [x1, y1, x2, y2] = box;
+      const cropW = Math.max(1, x2 - x1);
+      const cropH = Math.max(1, y2 - y1);
+
+      // Resize-with-aspect into the 960x32 frame.
+      let scale = RECOG_H / cropH;
+      let newW = Math.round(cropW * scale);
+      let newH = RECOG_H;
+      if (newW > RECOG_W) {
+        const sx = RECOG_W / newW;
+        newW = RECOG_W;
+        newH = Math.round(newH * sx); // < 32
+      }
+      const effectiveW = newW;
+      const effectiveH = newH;
+
+      // Crop then draw scaled into the top-left of a 960x32 canvas. The rest
+      // of the canvas stays black (the canvas is freshly allocated and JS
+      // initializes pixels to transparent black; we explicitly fill to be sure).
+      const recogCanvas = new OffscreenCanvas(RECOG_W, RECOG_H);
+      const recogCtx = recogCanvas.getContext('2d');
+      recogCtx.fillStyle = '#000';
+      recogCtx.fillRect(0, 0, RECOG_W, RECOG_H);
+      recogCtx.drawImage(regionImg, x1, y1, cropW, cropH, 0, 0, newW, newH);
+
+      const imageData = recogCtx.getImageData(0, 0, RECOG_W, RECOG_H);
+      const pixels = imageData.data;
+      const chSize = RECOG_W * RECOG_H;
+      const tensor = new Float32Array(3 * chSize);
+      for (let i = 0; i < chSize; i++) {
+        tensor[0 * chSize + i] = pixels[i * 4 + 0] / 255.0;
+        tensor[1 * chSize + i] = pixels[i * 4 + 1] / 255.0;
+        tensor[2 * chSize + i] = pixels[i * 4 + 2] / 255.0;
+      }
+
+      const imageTensor = new ort.Tensor('float32', tensor, [1, 3, RECOG_H, RECOG_W]);
+      const sizesTensor = new ort.Tensor(
+        'int64',
+        BigInt64Array.from([BigInt(RECOG_W), BigInt(RECOG_H)]),
+        [1, 2],
+      );
+
+      const inputNames = recogSession.inputNames;
+      const feeds = {
+        [inputNames[0]]: imageTensor,
+        [inputNames[1]]: sizesTensor,
+      };
+
+      const outputs = await recogSession.run(feeds);
+      const labels = outputs['char_codes'].data;
+      const rawBx  = outputs['boxes'].data;
+      const scores = outputs['scores'].data;
+      const numDet = scores.length;
+
+      const candidates = [];
+      for (let i = 0; i < numDet; i++) {
+        const score = scores[i];
+        if (score < REC_CONF_THRESHOLD) continue;
+
+        let rx1 = rawBx[i * 4 + 0];
+        let ry1 = rawBx[i * 4 + 1];
+        let rx2 = rawBx[i * 4 + 2];
+        let ry2 = rawBx[i * 4 + 3];
+
+        // Drop candidates whose left edge is in the right padding region.
+        if (rx1 >= effectiveW) continue;
+        // Same for top edge — only matters when effectiveH < 32.
+        if (ry1 >= effectiveH) continue;
+
+        rx1 = Math.min(rx1, effectiveW);
+        rx2 = Math.min(rx2, effectiveW);
+        ry1 = Math.min(ry1, effectiveH);
+        ry2 = Math.min(ry2, effectiveH);
+
+        // Map back from recognition space -> crop space, then translate to
+        // region-coords (which is the global coord space we report to callers).
+        const cx1 = (rx1 / effectiveW) * cropW;
+        const cx2 = (rx2 / effectiveW) * cropW;
+        const cy1 = (ry1 / effectiveH) * cropH;
+        const cy2 = (ry2 / effectiveH) * cropH;
+
+        const gx1 = Math.round(x1 + cx1);
+        const gy1 = Math.round(y1 + cy1);
+        const gx2 = Math.round(x1 + cx2);
+        const gy2 = Math.round(y1 + cy2);
+
+        // Validate before decoding. The recognition head emits raw Unicode
+        // codepoints, but a low-confidence prediction can come back as a value
+        // that isn't a decodable scalar — out of range, or a lone surrogate,
+        // which String.fromCodePoint turns into an unpaired surrogate that
+        // renders as U+FFFD. Those were showing up in place of 「 and 」. Drop
+        // them and log the raw value so the cause is visible.
+        const raw = typeof labels[i] === 'bigint' ? Number(labels[i]) : labels[i];
+        if (!Number.isInteger(raw) || raw < 0x20 || raw > 0x10FFFF ||
+          (raw >= 0xD800 && raw <= 0xDFFF)) {
+          log(`  dropped undecodable codepoint ${raw} (conf ${score.toFixed(2)})`);
+          continue;
+        }
+        const char = String.fromCodePoint(raw);
+        if (char === '\uFFFD') {
+          log(`  dropped replacement char from codepoint ${raw} (conf ${score.toFixed(2)})`);
+          continue;
+        }
+
+        // Punctuation gets its confidence multiplied down so overlapping real
+        // characters win the NMS tiebreak. We mutate conf BEFORE sorting.
+        const adjConf = isPunct(char) ? score * PUNCT_CONF_FACTOR : score;
+
+        candidates.push({
+          char,
+          bbox: [gx1, gy1, gx2, gy2],
+          conf: adjConf,
+          // x-interval in crop space is what we NMS over (avoids x1 ties from
+          // adjacent boxes with different crop origins — though that's moot for
+          // a single-line single-box case, this keeps the semantics local).
+          interval: [cx1, cx2],
+        });
+      }
+
+      // Greedy NMS by confidence with symmetric overlap (min of the two widths
+      // as denominator). This is the form the library uses, not the form in
+      // the official inference script.
+      candidates.sort((a, b) => b.conf - a.conf);
+      const accepted = [];
+      for (const cand of candidates) {
+        const [i1c, i2c] = cand.interval;
+        const lenC = i2c - i1c + EPSILON;
+        let overlap = false;
+        for (const acc of accepted) {
+          const [i1a, i2a] = acc.interval;
+          if (i1c >= i2a || i1a >= i2c) continue;
+          const interLen = Math.max(0, Math.min(i2c, i2a) - Math.max(i1c, i1a));
+          const lenA = i2a - i1a + EPSILON;
+          const denom = Math.min(lenC, lenA);
+          if (interLen / denom > X_OVERLAP_THRESHOLD) { overlap = true; break; }
+        }
+        if (!overlap) accepted.push(cand);
+      }
+
+      // Sort left-to-right for reading order.
+      accepted.sort((a, b) => a.interval[0] - b.interval[0]);
+      let text = accepted.map(c => c.char).join('');
+      let chars = accepted.map(c => ({ char: c.char, bbox: c.bbox }));
+      ({ text, chars } = fixSwappedPairs(text, chars));
+
+      return { text, chars };
+    }
+
+    // === FULL OCR PASS ========================================================
+
+    async function ocrRegion() {
+      const regionCanvas = grabRegionCanvas();
+      if (!regionCanvas) throw new Error('No scan region');
+
+      const t0 = performance.now();
+      const { boxes } = await runDetection(regionCanvas);
+      const tDetect = performance.now() - t0;
+
+      if (boxes.length === 0) {
+        log(`OCR: 0 boxes in ${tDetect.toFixed(0)}ms`);
+        return { text: '', lines: [], boxes: 0, tDetect, tRecog: 0 };
+      }
+
+      const t1 = performance.now();
+      const lines = [];
+      // Sequential rather than batched. ONNX-Runtime-Web doesn't get much from
+      // batching on WASM and sequential keeps memory pressure low. If this turns
+      // out to be the perf bottleneck we can revisit.
+      for (const box of boxes) {
+        const { text, chars } = await recognizeBox(regionCanvas, box);
+        if (!text) continue;
+        // Apply the Japanese-character filter here, per-line. If a line has no
+        // kana/kanji it gets dropped before it can pollute the output. UI chrome,
+        // English watermarks, romaji subs, etc.
+        if (!JAPANESE_REGEX.test(text)) {
+          log(`  skip non-JP line: "${text}"`);
+          continue;
+        }
+        lines.push({ text, bbox: box, chars });
+      }
+      const tRecog = performance.now() - t1;
+
+      const text = lines.map(l => l.text).join('\n');
+      log(`OCR: ${boxes.length} det -> ${lines.length} JP line(s) "${text.replace(/\n/g, ' | ')}" (det ${tDetect.toFixed(0)}ms + rec ${tRecog.toFixed(0)}ms)`);
+
+      return { text, lines, boxes: boxes.length, tDetect, tRecog };
+    }
+
+    // capture(): one user-facing capture cycle. Returns { dispatched, lines }
+    // so the auto-loop knows whether to clear the dirty flag.
+
+    async function capture() {
+      if (!modelsReady) throw new Error('Models not loaded yet');
+      if (captureBusy) { log('capture() already running, skipping'); return { dispatched: false, suppressed: false, lines: [] }; }
+      captureBusy = true;
+
+      try {
+        if (!captureStream || !captureVideo) {
+          await initStream();
+        }
+
+        if (!scanRegion) {
+          ui.setStatus('Draw a scan region...');
+          const fullCanvas = grabFrame();
+          const region = await showRegionSelector(fullCanvas);
+          if (!region) {
+            ui.setStatus('No region set');
+            return { dispatched: false, suppressed: false, lines: [] };
+          }
+        }
+
+        ui.setStatus('Running OCR...');
+        const tStart = performance.now();
+        const result = await ocrRegion();
+
+        if (result.text.length === 0) {
+          ui.setStatus('No text found');
+          return { dispatched: false, suppressed: false, lines: [] };
+        }
+
+        return dispatch(result.text, result.lines, tStart);
+
+      } catch (e) {
+        log('capture() error:', e);
+        ui.setStatus('Error: ' + e.message);
+        throw e;
+      } finally {
+        captureBusy = false;
+      }
+    }
+
+    // Dispatch fires when we have text that isn't a repeat of the last line we
+    // sent. A repeat guard is needed because the force-OCR safety net re-reads a
+    // static screen every FORCE_OCR_INTERVAL_MS and would otherwise re-send a
+    // line that's simply still on screen. The guard is deliberately narrow: it
+    // only compares against the immediately preceding line, so genuinely shorter
+    // follow-on text still gets through.
+    //
+    // The comparison key strips whitespace and punctuation. Terminal punctuation
+    // is the least stable part of a recognition pass: 」 and 。 occupy a similar
+    // box, both get PUNCT_CONF_FACTOR applied, and a one-frame difference (a
+    // fade, a blinking advance cursor, anti-aliasing) can flip which one wins
+    // NMS. So the same on-screen line can come back as ...できる」 on one pass
+    // and ...できる。on the next. A strict string compare misses that; this
+    // doesn't. The dispatched text itself is never modified.
+    let lastDispatchedKey = null;
+
+    // Strips whitespace, punctuation (\p{P}) and symbols (\p{S}). Symbols matter:
+    // 」 misrecognized as | is a common wobble, and | is category Sm, not P, so a
+    // punctuation-only strip leaves it in and the keys diverge.
+    function dedupKey(s) {
+      return s.replace(/[\s\u3000]+/g, '').replace(/[\p{P}\p{S}]/gu, '');
+    }
+
+    // Levenshtein distance, abandoned as soon as it's provably above `max`.
+    // Returns max + 1 to signal "further than we care about".
+    function boundedEditDistance(aStr, bStr, max) {
+      if (aStr === bStr) return 0;
+      const a = [...aStr];
+      const b = [...bStr];
+      if (Math.abs(a.length - b.length) > max) return max + 1;
+      if (a.length === 0) return b.length;
+      if (b.length === 0) return a.length;
+
+      let prev = new Array(b.length + 1);
+      let curr = new Array(b.length + 1);
+      for (let j = 0; j <= b.length; j++) prev[j] = j;
+
+      for (let i = 1; i <= a.length; i++) {
+        curr[0] = i;
+        let rowMin = curr[0];
+        for (let j = 1; j <= b.length; j++) {
+          const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+          curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+          if (curr[j] < rowMin) rowMin = curr[j];
+        }
+        if (rowMin > max) return max + 1;
+        const swap = prev; prev = curr; curr = swap;
+      }
+      return prev[b.length];
+    }
+
+    // Returns { distance } when `key` should be suppressed, otherwise null.
+    function duplicateOf(key, prevKey) {
+      if (!key || !prevKey) return null;
+      if (key === prevKey) return { distance: 0 };
+
+      // Short lines get exact matching only. 「うん」 and 「ううん」 are one edit
+      // apart and are entirely different lines; a distance rule at that length
+      // would silently drop real dialogue.
+      const len = Math.max([...key].length, [...prevKey].length);
+      if (len < DEDUP_MIN_LENGTH) return null;
+
+      const distance = boundedEditDistance(key, prevKey, DEDUP_MAX_EDITS);
+      if (distance > DEDUP_MAX_EDITS) return null;
+      if (distance / len > DEDUP_MAX_RATIO) return null;
+      return { distance };
+    }
+
+    function dispatch(text, lines, tStart) {
+      const joined = lines.map(l => l.text).join('');
+      const key = dedupKey(joined);
+      const tTotal = performance.now() - tStart;
+
+      // A line of pure punctuation has an empty key; never let that match.
+      const dup = duplicateOf(key, lastDispatchedKey);
+      if (dup) {
+        log(`Suppressed repeat, ${dup.distance} edit(s) from previous (${tTotal.toFixed(0)}ms): ${joined}`);
+        ui.setStatus(dup.distance === 0
+        ? 'Same as last line, skipped'
+        : `Near-duplicate (${dup.distance} char), skipped`);
+        // lastDispatchedKey deliberately not updated. Comparing against the last
+        // line actually sent stops a slowly drifting line from being suppressed
+        // forever, one edit at a time.
+        return { dispatched: false, suppressed: true, lines };
+      }
+
+      lastDispatchedKey = key;
+      log(`Dispatching kizuna:add-line (${tTotal.toFixed(0)}ms total): ${joined}`);
+      window.dispatchEvent(new CustomEvent('kizuna:add-line', { detail: { text: joined } }));
+      ui.setStatus(`Dispatched ${lines.length} line(s) in ${tTotal.toFixed(0)}ms`);
+      return { dispatched: true, suppressed: false, lines };
+    }
+
+    // === AUTO LOOP (state machine) ===========================================
+
+    const autoController = (function() {
+      let running = false;
+      let timer = null;
+      let lastSample = null;
+      let stableCount = 0;
+      let dirty = false;
+      let lastDispatchTime = 0;
+
+      async function tick() {
+        if (!running) return;
+        try {
+          await runTickBody();
+        } catch (e) {
+          log('Auto tick error:', e);
+        }
+        if (running) timer = setTimeout(tick, POLL_MS);
+      }
+
+      async function runTickBody() {
+        if (!captureStream || !captureVideo || !scanRegion) {
+          ui.setStatus('Waiting for region...');
+          return;
+        }
+        if (captureBusy) return;
+
+        const regionCanvas = grabRegionCanvas();
+        if (!regionCanvas) return;
+        const sample = sampleCanvas(regionCanvas);
+        const now = performance.now();
+
+        if (!lastSample) {
+          lastSample = sample;
+          return;
+        }
+
+        const ratio = diffSamples(lastSample, sample);
+        const changed = ratio >= CHANGE_RATIO;
+
+        if (changed) {
+          lastSample = sample;
+          stableCount = 0;
+          dirty = true;
+          ui.setStatus(`Changing (${(ratio * 100).toFixed(0)}%)...`);
+          return;
+        }
+
+        if (dirty) {
+          stableCount++;
+          ui.setStatus(`Settling ${stableCount}/${STABLE_TICKS}...`);
+          if (stableCount >= STABLE_TICKS) {
+            stableCount = 0;
+            ui.setStatus('Settled, reading');
+            log('[auto] settled, running OCR');
+            const result = await capture();
+            if (result.dispatched || result.suppressed) {
+              // A suppressed repeat still means we read the screen successfully
+              // and we're caught up — clear dirty, same as a real dispatch.
+              // Treating it as a failure would spin the settle loop forever.
+              dirty = false;
+              lastDispatchTime = performance.now();
+            } else {
+              // OCR ran but found nothing. Take a fresh sample so we don't
+              // immediately re-trigger on the same frame, but keep dirty=true
+              // so a real change OR the force-OCR safety net will re-try.
+              lastSample = sampleCanvas(grabRegionCanvas());
+              stableCount = 0;
+              log('[auto] OCR did not dispatch, keeping dirty=true');
+            }
+          }
+          return;
+        }
+
+        // Scene is stable and we believe we're caught up. Force-OCR safety net
+        // for cases where change detection itself missed (slow subtitle fade-in
+        // on a near-uniform background, for example).
+        ui.setStatus('Watching...');
+        const sinceDispatch = now - lastDispatchTime;
+        if (lastDispatchTime > 0 && sinceDispatch > FORCE_OCR_INTERVAL_MS) {
+          log(`[auto] force-OCR safety net (${(sinceDispatch/1000).toFixed(1)}s since last)`);
+          await capture();
+          // Reset the timer regardless of outcome so we don't hammer.
+          lastDispatchTime = performance.now();
+        }
+      }
+
+      return {
+        get running() { return running; },
+        start() {
+          if (running) return;
+          running = true;
+          lastSample = null;
+          stableCount = 0;
+          dirty = false;
+          lastDispatchTime = 0;
+          log(`Auto started (poll ${POLL_MS}ms, settle ${STABLE_TICKS} ticks, force-OCR ${FORCE_OCR_INTERVAL_MS}ms)`);
+          tick();
+        },
+        stop() {
+          if (!running) return;
+          running = false;
+          clearTimeout(timer);
+          timer = null;
+          log('Auto stopped');
+        },
+        reset() {
+          lastSample = null;
+          stableCount = 0;
+          dirty = false;
+          lastDispatchTime = 0;
+          // New region or manual reset: the same text should be readable again.
+          lastDispatchedKey = null;
+        },
+      };
+    })();
+
+    // === PUBLIC API ===========================================================
+
+    window.meikiOcr = {
+      capture: () => {
+        const p = capture();
+        p.then(({ lines }) => {
+          if (typeof window.onMeikiOcrResult === 'function') window.onMeikiOcrResult(lines);
+        }).catch(e => ui.setStatus('Error: ' + e.message));
+        return p;
+      },
+      isReady: () => modelsReady,
+      startAuto: () => autoController.start(),
+      stopAuto:  () => autoController.stop(),
+      // The capture stream's video, shared with the Anki screenshots below so
+      // one window pick serves both. openStream() asks for a window if none
+      // is being captured.
+      get video() { return captureVideo; },
+      openStream: async () => {
+        if (!captureStream || !captureVideo) await initStream();
+        return captureVideo;
+      },
+    };
+
+    window.addEventListener('meiki-ocr-capture', () => capture());
+
+    // === INIT =================================================================
+
+    try {
+      await loadModels();
+    } catch (e) {
+      ui.setStatus('Failed to load models: ' + e.message);
+      console.error('[MeikiOCR] Model load error:', e);
+    }
+
+    // === REGION SELECTOR ======================================================
+
+    function showRegionSelector(frameCanvas) {
+      return new Promise((resolve) => {
+        const dataUrl = frameCanvas.toDataURL('image/jpeg', 0.85);
+        const vidW = frameCanvas.width;
+        const vidH = frameCanvas.height;
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+        position:fixed;top:0;left:0;width:100%;height:100%;
+        z-index:2147483646;
+        background:#000 url('${dataUrl}') center/contain no-repeat;
+        cursor:crosshair;user-select:none;
+        `;
+
+        const vignette = document.createElement('div');
+        vignette.style.cssText = `position:absolute;inset:0;background:rgba(0,0,0,0.45);pointer-events:none;`;
+        overlay.appendChild(vignette);
+
+        const label = document.createElement('div');
+        label.textContent = 'Drag to select a scan region. Enter or double-click to confirm, Esc to cancel.';
+        label.style.cssText = `
+        position:absolute;top:16px;left:50%;transform:translateX(-50%);
+        background:#111827;color:#d1d5db;
+        font-family:system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;font-size:13px;
+        padding:6px 16px;border-radius:0.25rem;border:1px solid #374151;
+        pointer-events:none;white-space:nowrap;
+        `;
+        overlay.appendChild(label);
+
+        const rect = document.createElement('div');
+        rect.style.cssText = `
+        position:absolute;border:2px solid #3b82f6;
+        box-shadow:0 0 0 9999px rgba(0,0,0,0.35);
+        pointer-events:none;display:none;box-sizing:border-box;
+        `;
+        overlay.appendChild(rect);
+
+        // Both actions sit in one centered flex row. Positioning them
+        // individually meant the gap was a center-to-center offset, so the real
+        // spacing depended on how wide each label happened to render, and the
+        // pair as a whole sat off-center.
+        const actionRow = document.createElement('div');
+        actionRow.style.cssText = `
+        position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+        display:flex;gap:8px;
+        `;
+
+        const btnBase = `
+        padding:8px 16px;border-radius:0.25rem;cursor:pointer;display:none;
+        font-family:system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;font-size:13px;
+        `;
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Confirm region';
+        confirmBtn.style.cssText = btnBase + `
+        background:#1f2937;color:#60a5fa;border:1px solid #3b82f6;
+        `;
+        actionRow.appendChild(confirmBtn);
+
+        const clearBtn = document.createElement('button');
+        clearBtn.textContent = 'Clear region';
+        clearBtn.style.cssText = btnBase + `
+        background:#1f2937;color:#9ca3af;border:1px solid #374151;
+        `;
+        actionRow.appendChild(clearBtn);
+
+        overlay.appendChild(actionRow);
+
+        document.body.appendChild(overlay);
+
+        function getImageRect() {
+          const vw = window.innerWidth, vh = window.innerHeight;
+          const scale = Math.min(vw / vidW, vh / vidH);
+          const dispW = vidW * scale, dispH = vidH * scale;
+          return { left: (vw - dispW) / 2, top: (vh - dispH) / 2, width: dispW, height: dispH, scale };
+        }
+
+        function toVideoCoords(clientX, clientY) {
+          const r = getImageRect();
+          return {
+            x: Math.round((clientX - r.left) / r.scale),
+            y: Math.round((clientY - r.top) / r.scale),
+          };
+        }
+
+        let dragStart = null;
+        let currentSel = null;
+
+        function updateRect(x1, y1, x2, y2) {
+          const r = getImageRect();
+          const cx1 = Math.max(r.left, Math.min(r.left + r.width,  x1));
+          const cy1 = Math.max(r.top,  Math.min(r.top  + r.height, y1));
+          const cx2 = Math.max(r.left, Math.min(r.left + r.width,  x2));
+          const cy2 = Math.max(r.top,  Math.min(r.top  + r.height, y2));
+
+          const left = Math.min(cx1, cx2);
+          const top  = Math.min(cy1, cy2);
+          const width  = Math.abs(cx2 - cx1);
+          const height = Math.abs(cy2 - cy1);
+
+          rect.style.left = left + 'px';
+          rect.style.top  = top + 'px';
+          rect.style.width  = width + 'px';
+          rect.style.height = height + 'px';
+          rect.style.display = width > 4 && height > 4 ? 'block' : 'none';
+
+          const vc1 = toVideoCoords(left, top);
+          const vc2 = toVideoCoords(left + width, top + height);
+          currentSel = {
+            x: Math.max(0, vc1.x),
+            y: Math.max(0, vc1.y),
+            w: Math.min(vidW, vc2.x) - Math.max(0, vc1.x),
+            h: Math.min(vidH, vc2.y) - Math.max(0, vc1.y),
+          };
+
+          label.textContent = `${currentSel.w} × ${currentSel.h}px — Enter or double-click to confirm, Esc to cancel`;
+        }
+
+        function swallow(e) { e.stopPropagation(); }
+        [confirmBtn, clearBtn].forEach(btn => {
+          btn.addEventListener('mousedown', swallow);
+          btn.addEventListener('mouseup', swallow);
+        });
+
+        overlay.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return;
+          if (e.target !== overlay && e.target !== vignette) return;
+          dragStart = { x: e.clientX, y: e.clientY };
+          confirmBtn.style.display = 'none';
+          clearBtn.style.display = 'none';
+          currentSel = null;
+        });
+
+        overlay.addEventListener('mousemove', (e) => {
+          if (!dragStart) return;
+          updateRect(dragStart.x, dragStart.y, e.clientX, e.clientY);
+        });
+
+        overlay.addEventListener('mouseup', (e) => {
+          if (!dragStart) return;
+          updateRect(dragStart.x, dragStart.y, e.clientX, e.clientY);
+          dragStart = null;
+          if (currentSel && currentSel.w > 4 && currentSel.h > 4) {
+            confirmBtn.style.display = 'block';
+            clearBtn.style.display = 'block';
+          }
+        });
+
+        overlay.addEventListener('dblclick', () => {
+          if (currentSel && currentSel.w > 4) confirm();
+        });
+
+        function cleanup() {
+          document.removeEventListener('keydown', onKey);
+          overlay.remove();
+        }
+
+        function confirm() {
+          scanRegion = currentSel;
+          autoController.reset();
+          log('Scan region set:', JSON.stringify(scanRegion));
+          cleanup();
+          resolve(scanRegion);
+        }
+
+        function cancel() {
+          cleanup();
+          resolve(null);
+        }
+
+        function clearRegion() {
+          scanRegion = null;
+          autoController.reset();
+          rect.style.display = 'none';
+          confirmBtn.style.display = 'none';
+          clearBtn.style.display = 'none';
+          currentSel = null;
+          label.textContent = 'Region cleared. Drag to set a new one, or press Esc to close.';
+          log('Scan region cleared');
+          setTimeout(cleanup, 800);
+          resolve(null);
+        }
+
+        confirmBtn.addEventListener('click', (e) => { e.stopPropagation(); confirm(); });
+        clearBtn.addEventListener('click', (e) => { e.stopPropagation(); clearRegion(); });
+
+        function onKey(e) {
+          if (e.key === 'Escape') cancel();
+          else if (e.key === 'Enter' && currentSel) confirm();
+        }
+        document.addEventListener('keydown', onKey);
+      });
+    }
+
+    // === UI ===================================================================
+
+    function createUI() {
+      const panel = document.createElement('div');
+      panel.id = 'meiki-ocr-panel';
+      panel.innerHTML = `
+      <style>
+      /* Palette mirrors the Kizuna page: gray-900 surfaces, gray-700
+      *           borders, gray-800 buttons, blue-400 accent, red-400 for active. */
+      #meiki-ocr-panel {
+      position: fixed; bottom: 16px; right: 16px;
+      z-index: 2147483647;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+      pointer-events: none;
+      }
+      #meiki-ocr-panel {
+      opacity: 0.25;
+      transition: opacity 0.3s ease;
+      }
+
+      #meiki-ocr-panel:hover {
+      opacity: 1;
+      }
+      #meiki-ocr-panel button {
+      pointer-events: all;
+      font-family: inherit; font-size: 13px;
+      padding: 8px 12px; border-radius: 0.25rem;
+      background: #1f2937; color: #e5e7eb; border: 1px solid #374151;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      #meiki-ocr-panel button:not(:disabled):hover { background: #374151; }
+      #meiki-ocr-panel button:disabled { cursor: default; opacity: 0.4; }
+      #meiki-ocr-panel button:focus-visible {
+      outline: none; border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6;
+      }
+      #meiki-ocr-status {
+      background: #111827; color: #9ca3af;
+      border: 1px solid #374151; padding: 4px 12px; border-radius: 0.25rem;
+      max-width: 280px; text-align: right; transition: opacity 0.3s;
+      }
+      /* Primary action carries the blue accent. */
+      #meiki-ocr-btn { color: #60a5fa; }
+      #meiki-ocr-btn:not(:disabled):hover { color: #93c5fd; }
+      /* Running is a stop action, so it takes the page's destructive style. */
+      #meiki-ocr-auto.running {
+      color: #f87171;
+      background: rgba(127, 29, 29, 0.3);
+      border-color: rgba(127, 29, 29, 0.5);
+      }
+      #meiki-ocr-auto.running:not(:disabled):hover {
+      background: rgba(127, 29, 29, 0.5);
+      }
+      /* Set once a scan region exists. */
+      #meiki-ocr-region.active { color: #60a5fa; border-color: #3b82f6; }
+      </style>
+      <div id="meiki-ocr-status">Initializing...</div>
+      <div style="display:flex;gap:6px;">
+      <button id="meiki-ocr-reset" title="Clear region">Reset</button>
+      <button id="meiki-ocr-region" title="Set scan region">Region</button>
+      <button id="meiki-ocr-btn" disabled>OCR</button>
+      <button id="meiki-ocr-auto" disabled title="Start auto OCR">Run</button>
+      </div>
+      `;
+
+      const attach = () => {
+        if (document.body) document.body.appendChild(panel);
+        else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(panel));
+      };
+      attach();
+
+      const statusEl  = () => panel.querySelector('#meiki-ocr-status');
+      const btnEl     = () => panel.querySelector('#meiki-ocr-btn');
+      const autoBtnEl = () => panel.querySelector('#meiki-ocr-auto');
+
+      // Recognized text goes to the kizuna:add-line event and the console. The
+      // status line reports the count; we deliberately don't mirror the text
+      // on screen, since it's already added to the page.
+      async function runOnce() {
+        try {
+          await capture();
+        } catch (e) {
+          log('runOnce error:', e);
+        }
+      }
+
+      function refreshAutoBtn() {
+        const b = autoBtnEl();
+        if (!b) return;
+        if (autoController.running) {
+          b.textContent = 'Stop';
+          b.classList.add('running');
+          b.title = 'Stop auto mode';
+        } else {
+          b.textContent = 'Run';
+          b.classList.remove('running');
+          b.title = 'Start auto mode';
+        }
+      }
+
+      panel.addEventListener('click', (e) => {
+        if (e.target.id === 'meiki-ocr-auto' && !e.target.disabled) {
+          if (autoController.running) autoController.stop();
+          else autoController.start();
+          refreshAutoBtn();
+        }
+        if (e.target.id === 'meiki-ocr-btn' && !e.target.disabled) {
+          const btn = e.target;
+          btn.disabled = true;
+          btn.textContent = 'Running...';
+          runOnce().then(() => {
+            if (scanRegion && !autoController.running) {
+              autoController.start();
+              refreshAutoBtn();
+            }
+          }).finally(() => {
+            btn.disabled = false;
+            btn.textContent = 'Capture OCR';
+          });
+        }
+        if (e.target.id === 'meiki-ocr-region') {
+          if (!captureStream || !captureVideo) {
+            ui.setStatus('Start a capture first, then set region');
+            return;
+          }
+          const btn = e.target;
+          scanRegion = null;
+          const canvas = grabFrame();
+          showRegionSelector(canvas).then(region => {
+            if (region) {
+              btn.classList.add('active');
+              btn.title = `Scan region: ${region.w}x${region.h} — click to change`;
+              ui.setStatus(`Region set to ${region.w}×${region.h}, watching`);
+              if (!autoController.running) { autoController.start(); refreshAutoBtn(); }
+            } else {
+              btn.classList.remove('active');
+              btn.title = 'Set scan region';
+              ui.setStatus('No region — will prompt on next capture');
+            }
+          }).catch(e => log('Region selector error:', e));
+        }
+        if (e.target.id === 'meiki-ocr-reset') {
+          scanRegion = null;
+          autoController.reset();
+          const rb = panel.querySelector('#meiki-ocr-region');
+          if (rb) { rb.classList.remove('active'); rb.title = 'Set scan region'; }
+          ui.setStatus('Region cleared');
+          log('Region cleared, state reset');
+        }
+      });
+
+      let statusTimeout;
+      return {
+        setStatus(msg) {
+          const el = statusEl();
+          if (el) { el.textContent = msg; el.style.opacity = '1'; }
+          clearTimeout(statusTimeout);
+          if (modelsReady) {
+            statusTimeout = setTimeout(() => { if (el) el.style.opacity = '0.5'; }, 4000);
+          }
+        },
+        setReady(ready) {
+          const btn = btnEl();
+          if (btn) {
+            btn.disabled = !ready;
+            btn.textContent = ready ? 'Capture OCR' : 'Loading...';
+          }
+          const autoBtn = autoBtnEl();
+          if (autoBtn) autoBtn.disabled = !ready;
+        },
+      };
+    }
+
+  })();
+</script>
+<script>
+  /**
+   * Anki Auto Screenshot Capture, ported from its userscript.
+   *
+   * Watches Anki (through AnkiConnect) for cards added today. When one appears,
+   * a screenshot of the captured window goes into the newest card's picture
+   * field, unless it already has one. The window is the OCR's capture stream,
+   * so one pick serves both. AnkiConnect's address and the field come from the
+   * page's settings.
+   */
+
+  (function() {
+    'use strict';
+
+    // Configuration
+    const POLL_INTERVAL = 1000; // Check every 1 second
+
+    // Crop settings to remove window chrome (title bar, borders)
+    const DEFAULT_CROP = {
+      top: 32,      // Title bar height
+      bottom: 8,    // Bottom border
+      left: 8,      // Left border
+      right: 8      // Right border
+    };
+    const CROP_SETTINGS = { ...DEFAULT_CROP };
+
+    let currentNoteIds = new Set();
+    let firstRun = true;
+    let isCapturing = false;
+    let cropStream = null;  // The capture stream the crop was set for
+    let lastWindowDimensions = null;  // Track last captured window size
+
+    // Start polling for new Anki cards
+    startPolling();
+
+    async function startPolling() {
+      console.log('Started polling Anki for new cards...');
+
+      while (true) {
+        await checkForNewCards();
+        await sleep(POLL_INTERVAL);
+      }
+    }
+
+    async function checkForNewCards() {
+      // Turned off: the cards already there when it's turned back on aren't new.
+      if (!settings.anki) {
+        firstRun = true;
+        return;
+      }
+
+      try {
+        const updatedNoteIds = await getNoteIds();
+        const newCardIds = difference(updatedNoteIds, currentNoteIds);
+
+        if (newCardIds.size > 0 && !firstRun) {
+          console.log('Detected new card in Anki! Capturing screenshot...');
+
+          if (!isCapturing) {
+            isCapturing = true;
+            await captureAndAddToAnki();
+            isCapturing = false;
+          }
+        }
+
+        firstRun = false;
+        currentNoteIds = updatedNoteIds;
+
+      } catch (error) {
+        console.error('Error checking for new cards:', error);
+      }
+    }
+
+    async function getNoteIds() {
+      const noteIds = await ankiInvoke('findNotes', { query: 'added:1' });
+      return new Set(noteIds);
+    }
+
+    function difference(setA, setB) {
+      const diff = new Set();
+      for (const elem of setA) {
+        if (!setB.has(elem)) {
+          diff.add(elem);
+        }
+      }
+      return diff;
+    }
+
+    async function captureAndAddToAnki() {
+      try {
+        // Small delay to ensure card is fully created
+        await sleep(500);
+
+        // Capture the screenshot
+        const pngDataUrl = await captureWindowScreenshot();
+
+        // Get the latest Anki card
+        const lastNote = await getLastAnkiCard();
+
+        if (!lastNote || !lastNote.noteId) {
+          showNotification('No Anki cards found for today', 'error');
+          return;
+        }
+
+        // Check if card already has an image
+        const pictureField = lastNote.fields[settings.ankiField];
+        if (pictureField && pictureField.value) {
+          console.log('Latest card already has an image, skipping');
+          return;
+        }
+
+        // Convert data URL to base64
+        const base64Data = pngDataUrl.split(',')[1];
+
+        // Generate filename
+        const filename = `screenshot_${Date.now()}.png`;
+
+        // Store the image in Anki
+        const storedFilename = await storeMediaFile(filename, base64Data);
+
+        // Update the card with the image
+        await updateNoteWithImage(lastNote.noteId, storedFilename);
+
+        showNotification('✓ Screenshot added to Anki card!', 'success');
+        console.log(`Updated Anki card ${lastNote.noteId} with screenshot`);
+
+      } catch (error) {
+        console.error('Error:', error);
+        showNotification('Failed: ' + error.message, 'error');
+      }
+    }
+
+    // The OCR's capture stream, asking for a window if there's none yet (the
+    // user will be prompted ONCE to select one). The crop is set once per
+    // stream, and again whenever the window changes size.
+    async function getCaptureVideo() {
+      const video = await window.meikiOcr.openStream();
+      if (video.srcObject !== cropStream) {
+        await adjustCrop(video);
+        cropStream = video.srcObject;
+      }
+      return video;
+    }
+
+    async function adjustCrop(video) {
+      // Show crop adjustment dialog
+      const userCropSettings = await showCropAdjustmentDialog(video);
+
+      // Update crop settings with user values
+      CROP_SETTINGS.left = userCropSettings.left;
+      CROP_SETTINGS.right = userCropSettings.right;
+      CROP_SETTINGS.top = userCropSettings.top;
+      CROP_SETTINGS.bottom = userCropSettings.bottom;
+
+      // Store window dimensions the crop was set for
+      lastWindowDimensions = {
+        width: video.videoWidth,
+        height: video.videoHeight
+      };
+
+      console.log('Crop settings updated:', CROP_SETTINGS);
+    }
+
+    async function showCropAdjustmentDialog(video) {
+      return new Promise((resolve) => {
+        // Load saved crop settings
+        const savedSettings = load('thk.ankiCrop', null);
+
+        // Capture current frame for preview
+        const sourceCanvas = document.createElement('canvas');
+        sourceCanvas.width = video.videoWidth;
+        sourceCanvas.height = video.videoHeight;
+        const sourceCtx = sourceCanvas.getContext('2d');
+        sourceCtx.drawImage(video, 0, 0);
+
+        // Create preview canvas for cropped result
+        const previewCanvas = document.createElement('canvas');
+        const previewCtx = previewCanvas.getContext('2d');
+
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 999999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        box-sizing: border-box;
+        `;
+
+        // Create container
+        const container = document.createElement('div');
+        container.style.cssText = `
+        background: #2b2b2b;
+        border-radius: 12px;
+        padding: 20px;
+        max-width: 90vw;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        box-sizing: border-box;
+        overflow: hidden;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = 'Adjust Screenshot Crop Area';
+        title.style.cssText = `
+        margin: 0;
+        color: white;
+        font-family: Arial, sans-serif;
+        font-size: 20px;
+        text-align: center;
+        flex-shrink: 0;
+        `;
+
+        // Preview container with canvas
+        const previewContainer = document.createElement('div');
+        previewContainer.style.cssText = `
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        `;
+
+        // Style the preview canvas
+        previewCanvas.style.cssText = `
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        border: 1px solid #555;
+        `;
+
+        // Controls container
+        const controlsContainer = document.createElement('div');
+        controlsContainer.style.cssText = `
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        color: white;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        flex-shrink: 0;
+        `;
+
+        // Current crop values - use saved settings if available
+        let cropValues = savedSettings ? {
+          left: savedSettings.left,
+          right: savedSettings.right,
+          top: savedSettings.top,
+          bottom: savedSettings.bottom
+        } : {
+          left: CROP_SETTINGS.left,
+          right: CROP_SETTINGS.right,
+          top: CROP_SETTINGS.top,
+          bottom: CROP_SETTINGS.bottom
+        };
+
+        // Function to update cropped preview
+        function updateCroppedPreview() {
+          // Calculate cropped dimensions
+          const croppedWidth = sourceCanvas.width - cropValues.left - cropValues.right;
+          const croppedHeight = sourceCanvas.height - cropValues.top - cropValues.bottom;
+
+          // Resize preview canvas to match cropped dimensions
+          previewCanvas.width = croppedWidth;
+          previewCanvas.height = croppedHeight;
+
+          // Draw the cropped portion from source canvas
+          previewCtx.drawImage(
+            sourceCanvas,
+            cropValues.left,      // Source X
+            cropValues.top,       // Source Y
+            croppedWidth,         // Source width
+            croppedHeight,        // Source height
+            0,                    // Dest X
+            0,                    // Dest Y
+            croppedWidth,         // Dest width
+            croppedHeight         // Dest height
+          );
+        }
+
+        // Create slider control
+        function createSlider(label, initialValue, max, onChange) {
+          const sliderContainer = document.createElement('div');
+          sliderContainer.style.cssText = `
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          `;
+
+          const labelContainer = document.createElement('div');
+          labelContainer.style.cssText = `
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          `;
+
+          const labelElement = document.createElement('label');
+          labelElement.textContent = label;
+          labelElement.style.fontWeight = 'bold';
+
+          const valueDisplay = document.createElement('span');
+          valueDisplay.textContent = initialValue + 'px';
+          valueDisplay.style.cssText = `
+          color: #4CAF50;
+          font-family: monospace;
+          `;
+
+          const slider = document.createElement('input');
+          slider.type = 'range';
+          slider.min = '0';
+          slider.max = max;
+          slider.value = initialValue;
+          slider.style.cssText = `
+          width: 100%;
+          cursor: pointer;
+          `;
+
+          const updateValue = (value) => {
+            // Clamp value between 0 and max
+            value = Math.max(0, Math.min(max, value));
+            slider.value = value;
+            valueDisplay.textContent = value + 'px';
+            onChange(value);
+            updateCroppedPreview();
+          };
+
+          slider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            valueDisplay.textContent = value + 'px';
+            onChange(value);
+            updateCroppedPreview();
+          });
+
+          // Button container
+          const buttonContainer = document.createElement('div');
+          buttonContainer.style.cssText = `
+          display: flex;
+          gap: 5px;
+          justify-content: center;
+          `;
+
+          // Decrement button
+          const decrementButton = document.createElement('button');
+          decrementButton.textContent = '−';
+          decrementButton.style.cssText = `
+          padding: 6px 12px;
+          background: #444;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          font-size: 18px;
+          font-weight: bold;
+          cursor: pointer;
+          font-family: Arial, sans-serif;
+          min-width: 40px;
+          `;
+          decrementButton.addEventListener('mouseover', () => {
+            decrementButton.style.background = '#555';
+          });
+          decrementButton.addEventListener('mouseout', () => {
+            decrementButton.style.background = '#444';
+          });
+          decrementButton.addEventListener('click', () => {
+            updateValue(parseInt(slider.value) - 1);
+          });
+
+          // Increment button
+          const incrementButton = document.createElement('button');
+          incrementButton.textContent = '+';
+          incrementButton.style.cssText = `
+          padding: 6px 12px;
+          background: #444;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          font-size: 18px;
+          font-weight: bold;
+          cursor: pointer;
+          font-family: Arial, sans-serif;
+          min-width: 40px;
+          `;
+          incrementButton.addEventListener('mouseover', () => {
+            incrementButton.style.background = '#555';
+          });
+          incrementButton.addEventListener('mouseout', () => {
+            incrementButton.style.background = '#444';
+          });
+          incrementButton.addEventListener('click', () => {
+            updateValue(parseInt(slider.value) + 1);
+          });
+
+          buttonContainer.appendChild(decrementButton);
+          buttonContainer.appendChild(incrementButton);
+
+          labelContainer.appendChild(labelElement);
+          labelContainer.appendChild(valueDisplay);
+          sliderContainer.appendChild(labelContainer);
+          sliderContainer.appendChild(slider);
+          sliderContainer.appendChild(buttonContainer);
+
+          return sliderContainer;
+        }
+
+        // Create sliders
+        const leftSlider = createSlider('Left', cropValues.left, Math.floor(video.videoWidth / 2), (value) => {
+          cropValues.left = value;
+        });
+
+        const rightSlider = createSlider('Right', cropValues.right, Math.floor(video.videoWidth / 2), (value) => {
+          cropValues.right = value;
+        });
+
+        const topSlider = createSlider('Top', cropValues.top, Math.floor(video.videoHeight / 2), (value) => {
+          cropValues.top = value;
+        });
+
+        const bottomSlider = createSlider('Bottom', cropValues.bottom, Math.floor(video.videoHeight / 2), (value) => {
+          cropValues.bottom = value;
+        });
+
+        // Add sliders to controls
+        controlsContainer.appendChild(leftSlider);
+        controlsContainer.appendChild(rightSlider);
+        controlsContainer.appendChild(topSlider);
+        controlsContainer.appendChild(bottomSlider);
+
+        // Button container
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-shrink: 0;
+        `;
+
+        // Confirm button
+        const confirmButton = document.createElement('button');
+        confirmButton.textContent = 'Confirm Crop Settings';
+        confirmButton.style.cssText = `
+        padding: 12px 24px;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+        `;
+        confirmButton.addEventListener('mouseover', () => {
+          confirmButton.style.background = '#45a049';
+        });
+        confirmButton.addEventListener('mouseout', () => {
+          confirmButton.style.background = '#4CAF50';
+        });
+        confirmButton.addEventListener('click', () => {
+          // Save crop settings
+          save('thk.ankiCrop', cropValues);
+          console.log('Crop settings saved:', cropValues);
+          overlay.remove();
+          resolve(cropValues);
+        });
+
+        // Reset button
+        const resetButton = document.createElement('button');
+        resetButton.textContent = 'Reset to Default';
+        resetButton.style.cssText = `
+        padding: 12px 24px;
+        background: #666;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+        `;
+        resetButton.addEventListener('mouseover', () => {
+          resetButton.style.background = '#555';
+        });
+        resetButton.addEventListener('mouseout', () => {
+          resetButton.style.background = '#666';
+        });
+        resetButton.addEventListener('click', () => {
+          cropValues = { ...DEFAULT_CROP };
+          // Update all sliders
+          leftSlider.querySelector('input').value = cropValues.left;
+          leftSlider.querySelector('span').textContent = cropValues.left + 'px';
+          rightSlider.querySelector('input').value = cropValues.right;
+          rightSlider.querySelector('span').textContent = cropValues.right + 'px';
+          topSlider.querySelector('input').value = cropValues.top;
+          topSlider.querySelector('span').textContent = cropValues.top + 'px';
+          bottomSlider.querySelector('input').value = cropValues.bottom;
+          bottomSlider.querySelector('span').textContent = cropValues.bottom + 'px';
+          updateCroppedPreview();
+        });
+
+        // Assemble the dialog
+        previewContainer.appendChild(previewCanvas);
+        buttonContainer.appendChild(confirmButton);
+        buttonContainer.appendChild(resetButton);
+        container.appendChild(title);
+        container.appendChild(previewContainer);
+        container.appendChild(controlsContainer);
+        container.appendChild(buttonContainer);
+        overlay.appendChild(container);
+        document.body.appendChild(overlay);
+
+        // Initial preview update
+        updateCroppedPreview();
+      });
+    }
+
+    async function captureWindowScreenshot() {
+      try {
+        // Initialize stream on first capture
+        const captureVideo = await getCaptureVideo();
+
+        // Check if window dimensions have changed
+        const currentDimensions = {
+          width: captureVideo.videoWidth,
+          height: captureVideo.videoHeight
+        };
+
+        if (lastWindowDimensions &&
+            (lastWindowDimensions.width !== currentDimensions.width ||
+             lastWindowDimensions.height !== currentDimensions.height)) {
+          console.log('Window size changed, showing crop adjustment dialog');
+          console.log('Previous:', lastWindowDimensions, 'Current:', currentDimensions);
+
+          // Show crop adjustment dialog again with new dimensions
+          await adjustCrop(captureVideo);
+        }
+
+        // Store current dimensions for next comparison
+        lastWindowDimensions = currentDimensions;
+
+        // Create canvas and capture current frame
+        const canvas = document.createElement('canvas');
+        canvas.width = captureVideo.videoWidth;
+        canvas.height = captureVideo.videoHeight;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(captureVideo, 0, 0);
+
+        // Create a new canvas for the cropped version
+        const croppedCanvas = document.createElement('canvas');
+        const croppedWidth = canvas.width - CROP_SETTINGS.left - CROP_SETTINGS.right;
+        const croppedHeight = canvas.height - CROP_SETTINGS.top - CROP_SETTINGS.bottom;
+
+        croppedCanvas.width = croppedWidth;
+        croppedCanvas.height = croppedHeight;
+
+        const croppedCtx = croppedCanvas.getContext('2d');
+
+        // Draw the cropped portion (removes window chrome)
+        croppedCtx.drawImage(
+          canvas,
+          CROP_SETTINGS.left,           // Source X
+          CROP_SETTINGS.top,            // Source Y
+          croppedWidth,                 // Source width
+          croppedHeight,                // Source height
+          0,                            // Dest X
+          0,                            // Dest Y
+          croppedWidth,                 // Dest width
+          croppedHeight                 // Dest height
+        );
+
+        // Lossless PNG
+        return croppedCanvas.toDataURL('image/png');
+
+      } catch (error) {
+        throw new Error('Screenshot capture cancelled or failed: ' + error.message);
+      }
+    }
+
+    async function getLastAnkiCard() {
+      const noteIds = await ankiInvoke('findNotes', { query: 'added:1' });
+
+      if (!noteIds || noteIds.length === 0) {
+        return null;
+      }
+
+      const lastNoteId = noteIds[noteIds.length - 1];
+      const notesInfo = await ankiInvoke('notesInfo', { notes: [lastNoteId] });
+
+      return notesInfo[0];
+    }
+
+    async function storeMediaFile(filename, base64Data) {
+      return await ankiInvoke('storeMediaFile', {
+        filename: filename,
+        data: base64Data
+      });
+    }
+
+    async function updateNoteWithImage(noteId, filename) {
+      const imageHtml = `<img src="${filename}">`;
+
+      await ankiInvoke('updateNoteFields', {
+        note: {
+          id: noteId,
+          fields: {
+            [settings.ankiField]: imageHtml
+          }
+        }
+      });
+    }
+
+    // A text body (no Content-Type header) keeps it a "simple" request: no
+    // CORS preflight. AnkiConnect still checks the page's origin against its
+    // webCorsOriginList.
+    async function ankiInvoke(action, params = {}) {
+      const payload = JSON.stringify({
+        action: action,
+        version: 6,
+        params: params
+      });
+
+      let response;
+      try {
+        response = await fetch(settings.ankiUrl, { method: 'POST', body: payload });
+      } catch (error) {
+        throw new Error('Failed to connect to Anki');
+      }
+
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        throw new Error('Failed to parse Anki response');
+      }
+
+      if (result.error) throw new Error(result.error);
+      return result.result;
+    }
+
+    function showNotification(message, type = 'info') {
+      const notification = document.createElement('div');
+
+      const colors = {
+        success: '#4CAF50',
+        error: '#f44336',
+        warning: '#ff9800',
+        info: '#2196F3'
+      };
+
+      notification.textContent = message;
+      notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: ${colors[type]};
+      color: white;
+      padding: 15px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      z-index: 10001;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      max-width: 300px;
+      animation: slideIn 0.3s ease-out;
+      `;
+
+      const style = document.createElement('style');
+      style.textContent = `
+      @keyframes slideIn {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      `;
+      if (!document.querySelector('style[data-anki-notif]')) {
+        style.setAttribute('data-anki-notif', 'true');
+        document.head.appendChild(style);
+      }
+
+      document.body.appendChild(notification);
+
+      setTimeout(() => {
+        notification.style.transition = 'opacity 0.3s ease-out';
+        notification.style.opacity = '0';
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    console.log('Anki Auto Screenshot Capture loaded. Monitoring for new cards...');
+  })();
+</script>
+</body>
 </html>
