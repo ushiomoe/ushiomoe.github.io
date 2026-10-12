@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Okayu</title>
+<title>Game OCR</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1221,12 +1221,30 @@
 
       captureVideo = document.createElement('video');
       captureVideo.srcObject = captureStream;
-      captureVideo.autoplay = true;
       captureVideo.muted = true;
-      captureVideo.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;';
+      captureVideo.playsInline = true;
+      // Inside the viewport, 1px and transparent: Chromium may pause or stop
+      // decoding a muted video it thinks is off-screen, and every frame drawn
+      // from it then comes out black.
+      captureVideo.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;';
       document.body.appendChild(captureVideo);
 
-      await new Promise((resolve) => { captureVideo.onloadedmetadata = resolve; });
+      // Started explicitly rather than by autoplay, then held until a real
+      // frame has arrived: metadata alone comes before any picture, so a
+      // frame grabbed then is blank.
+      await captureVideo.play();
+      await new Promise((resolve) => {
+        if (captureVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) resolve();
+        else captureVideo.addEventListener('loadeddata', resolve, { once: true });
+      });
+      // A presented frame too, where the browser can tell us. Capped: a still
+      // screen may not send a new frame for a while.
+      if (captureVideo.requestVideoFrameCallback) {
+        await new Promise((resolve) => {
+          captureVideo.requestVideoFrameCallback(() => resolve());
+          setTimeout(resolve, 1000);
+        });
+      }
       log(`Stream ready: ${captureVideo.videoWidth}x${captureVideo.videoHeight}`);
 
       captureStream.getTracks()[0].addEventListener('ended', () => {
